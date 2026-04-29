@@ -18,6 +18,7 @@ public class WeatherStation implements Runnable {
     @Override
     public void run() {
         while (true) {
+            long startTime = System.currentTimeMillis();
             sequence++;
 
             generator.generate(stationId, sequence).ifPresent(message -> {
@@ -26,10 +27,14 @@ public class WeatherStation implements Runnable {
                 producer.send(String.valueOf(stationId), json);
             });
 
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+            long elapsedTime = System.currentTimeMillis() - startTime; // almost zero, only around half a second at first time
+            long sleepTime = 1000 - elapsedTime; //remaining time to sleep
+            if (sleepTime > 0) {
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
         }
     }
