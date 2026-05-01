@@ -1,4 +1,4 @@
-package com.example.weather_station.model;
+package com.example.model;
 
 public class WeatherMessage {
     private long stationId;

@@ -1,6 +1,6 @@
-package com.example.weather_station;
+package com.example;
 
-import com.example.weather_station.station.WeatherStation;
+import com.example.station.WeatherStation;
 
 public class Main {
     public static void main(String[] args) {

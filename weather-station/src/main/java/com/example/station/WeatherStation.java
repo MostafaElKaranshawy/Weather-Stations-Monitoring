@@ -1,7 +1,7 @@
-package com.example.weather_station.station;
+package com.example.station;
 
-import com.example.weather_station.generator.WeatherDataGenerator;
-import com.example.weather_station.producer.KafkaProducerService;
+import com.example.generator.WeatherDataGenerator;
+import com.example.producer.KafkaProducerService;
 
 public class WeatherStation implements Runnable {
 

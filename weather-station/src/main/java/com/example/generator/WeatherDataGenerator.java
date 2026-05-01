@@ -1,8 +1,9 @@
-package com.example.weather_station.generator;
+package com.example.generator;
 
-import com.example.weather_station.model.BatteryStatus;
-import com.example.weather_station.model.WeatherMessage;
-import com.example.weather_station.model.Weather;
+import com.example.model.BatteryStatus;
+import com.example.model.Weather;
+import com.example.model.WeatherMessage;
+
 import java.util.Optional;
 import java.util.Random;
 

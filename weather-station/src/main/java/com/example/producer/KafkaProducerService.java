@@ -1,4 +1,4 @@
-package com.example.weather_station.producer;
+package com.example.producer;
 
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
