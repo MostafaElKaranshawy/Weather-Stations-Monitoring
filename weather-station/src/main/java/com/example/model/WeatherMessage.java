@@ -1,5 +1,7 @@
 package com.example.model;
 
+import org.json.JSONObject;
+
 public class WeatherMessage {
     private long stationId;
     private long sNo;
@@ -17,11 +19,22 @@ public class WeatherMessage {
     }
 
     public String toJson() {
-        return String.format(
-                "{\"station_id\":%d,\"s_no\":%d,\"battery_status\":\"%s\",\"status_timestamp\":%d," +
-                        "\"weather\":{\"humidity\":%d,\"temperature\":%d,\"wind_speed\":%d}}",
-                stationId, sNo, batteryStatus.name().toLowerCase(), timestamp,
-                weather.getHumidity(), weather.getTemperature(), weather.getWindSpeed()
-        );
+
+        JSONObject metadata = new JSONObject()
+                .put("station_id", stationId)
+                .put("s_no", sNo)
+                .put("battery_status", batteryStatus.name().toLowerCase())
+                .put("status_timestamp", timestamp);
+
+        JSONObject weatherData = new JSONObject()
+                .put("humidity", weather.getHumidity())
+                .put("temperature", weather.getTemperature())
+                .put("wind_speed", weather.getWindSpeed());
+
+        return new JSONObject()
+                .put("metadata", metadata)
+                .put("payload", new JSONObject().put("weather", weatherData))
+                .toString();
     }
+
 }
