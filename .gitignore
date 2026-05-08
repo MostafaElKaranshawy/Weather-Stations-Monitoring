@@ -33,3 +33,4 @@ overridedb.*
 lib/
 secrets.yml
 .env
+data

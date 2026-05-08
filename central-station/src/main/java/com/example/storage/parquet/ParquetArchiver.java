@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ParquetArchiver implements AutoCloseable {
 
     private static final int BATCH_SIZE = 10_000;
-    private static final String BASE_DIR   = "/data/parquet";
+    private static final String BASE_DIR = "./data/parquet";
 
     private final Schema schema;
 
