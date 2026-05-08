@@ -1,0 +1,132 @@
+package com.example.consumer;
+
+import com.example.idempotency.IdempotentReceiver;
+import com.example.model.WeatherRecord;
+import com.example.router.EnvelopeUnwrapper;
+import com.example.router.FailureMessageRouter;
+import com.example.storage.WeatherStorageCoordinator;
+import com.example.validation.MessageValidator;
+import org.apache.kafka.clients.consumer.*;
+import org.apache.kafka.common.serialization.StringDeserializer;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Optional;
+import java.util.Properties;
+
+public class WeatherKafkaConsumer implements Runnable {
+
+    private static final String TOPIC = "weather_data";
+    private final KafkaConsumer<String, String> consumer;
+
+    // validates message structure and field values before we do anything else
+    private final MessageValidator validator;
+
+    // needed to parse the received JSON into WeatherRecord object
+    private final EnvelopeUnwrapper unwrapper;
+
+    // routes bad messages to weather_invalid_data or weather_dead_letter
+    private final FailureMessageRouter failureRouter;
+
+    // writes valid records to BitCask (latest) and Parquet (full archive)
+    private final WeatherStorageCoordinator storageCoordinator;
+
+
+    private volatile boolean running = true;
+
+    // NEED TO REMOVE ALL THE HARD CODED PARAMETERS, AND PASS THEM FROM OUTSIDE, EITHER VIA CONSTRUCTOR OR CONFIG FILE
+    public WeatherKafkaConsumer(WeatherStorageCoordinator storageCoordinator) {
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "central-station-group");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+
+        // If this consumer group has no committed offset yet (first run),
+        // start reading from the very beginning of the topic
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+
+        // Auto-commit runs on a timer — it could commit an offset before we
+        // finish writing to BitCask/Parquet. If we crash in that gap, the
+        // message is lost forever. Manual commit means we only advance the
+        // offset after the record is safely on disk.
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
+
+
+        this.consumer = new KafkaConsumer<>(props);
+        consumer.subscribe(List.of(TOPIC));
+
+        this.validator = new MessageValidator();
+        this.failureRouter = new FailureMessageRouter();
+        this.unwrapper = new EnvelopeUnwrapper();
+
+        // needs to be passed from outside to prevent coupling
+        this.storageCoordinator = storageCoordinator;
+    }
+
+
+    @Override
+    public void run() {
+        System.out.println("[Consumer] started, listening on: " + TOPIC);
+
+        while (running) {
+            // Polling consumer pattern:
+            // poll() asks Kafka "give me any available messages, wait up to
+            // 500ms if there are none right now."
+            // It returns a batch — could be 0, 1, or many records.
+            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+
+            for (ConsumerRecord<String, String> record : records) {
+
+                try {
+                    processOneRecord(record);
+                } catch (Exception e) {
+                    // should I handle exceptions differently?
+                    System.err.printf("[Consumer] unexpected error at offset %d on partition %d: %s%n",
+                            record.offset(), record.partition(), e.getMessage()
+                    );
+                }
+
+                // If we actually received something and processed it, then we should move the offset forward.
+                // If it's an empty batch, we just loop back and poll again without committing. And If failure happened,
+                // the whole batch will be resent so it should be handled at IdempotentReceiver (Yarab Ya3ny)
+                if (!records.isEmpty())
+                    consumer.commitSync();
+
+            }
+        }
+    }
+
+    private void processOneRecord(ConsumerRecord<String, String> record) throws Exception {
+        String rawJSON = record.value();
+
+        // 1. validate and route to failure topics if needed
+        if (!validator.isValidJSON(rawJSON)) {
+            failureRouter.route(rawJSON);
+            return;
+        }
+
+        // 2. parse JSON into WeatherRecord object
+        // Optional for the case my checks are damg (if I forgot anything ya3ny)
+        Optional<WeatherRecord> maybeRecord = unwrapper.unwrap(rawJSON);
+        if (maybeRecord.isEmpty()) {
+            failureRouter.route(rawJSON);
+            return;
+        }
+
+        WeatherRecord weatherRecord = maybeRecord.get();
+
+        // 3. check for duplicate deliveries
+        if (!IdempotentReceiver.shouldProcess(weatherRecord.getStationId(), weatherRecord.getSNo())) {
+            System.out.printf("[Consumer] skipping duplicate message for station %d with sNo %d%n",
+                    weatherRecord.getStationId(), weatherRecord.getSNo());
+            return;
+        }
+
+        // 4. save to storage (BitCask + Parquet)
+        // [Probably] Claim Check pattern (implemented inside MessageDispatcher): ---> need to double check this
+        // BitCask  → stores only the LATEST value per station (fast lookups)
+        // Parquet  → stores EVERY message (full historical archive)
+        storageCoordinator.save(weatherRecord);
+    }
+}
