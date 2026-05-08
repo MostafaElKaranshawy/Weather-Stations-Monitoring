@@ -1,0 +1,87 @@
+package com.example.validation;
+
+import org.json.JSONObject;
+
+public class MessageValidator {
+
+    public boolean isValidJSON(String json) {
+        if (json == null || json.trim().isEmpty())
+            return false;
+
+        try {
+            JSONObject obj = new JSONObject(json);
+
+            return hasValidStructure(obj) &&
+                    hasValidMetadata(obj.getJSONObject("metadata")) &&
+                    hasValidPayload(obj.getJSONObject("payload"));
+
+        } catch (Exception e) {
+            return false; // Invalid JSON or missing required objects
+        }
+    }
+
+    private boolean hasValidStructure(JSONObject obj) {
+        return obj.has("metadata") && obj.has("payload");
+    }
+
+    private boolean hasValidMetadata(JSONObject metadata) {
+        return hasRequiredMetadataFields(metadata) &&
+                hasValidMetadataTypes(metadata) &&
+                hasValidBatteryStatus(metadata);
+    }
+
+    private boolean hasRequiredMetadataFields(JSONObject metadata) {
+        return metadata.has("station_id") &&
+                metadata.has("s_no") &&
+                metadata.has("battery_status") &&
+                metadata.has("status_timestamp");
+    }
+
+    private boolean hasValidMetadataTypes(JSONObject metadata) {
+        return isNumber(metadata, "station_id") &&
+                isNumber(metadata, "s_no") &&
+                isNumber(metadata, "status_timestamp");
+    }
+
+    private boolean hasValidBatteryStatus(JSONObject metadata) {
+        try {
+            String status = metadata.getString("battery_status");
+            if (status == null) return false;
+            String lower = status.toLowerCase().trim();
+            return "low".equals(lower) || "medium".equals(lower) || "high".equals(lower);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean hasValidPayload(JSONObject payload) {
+        if (!payload.has("weather"))
+            return false;
+
+        JSONObject weather = payload.getJSONObject("weather");
+
+        return isNumber(weather, "humidity") &&
+                isNumber(weather, "temperature") &&
+                isNumber(weather, "wind_speed") &&
+                hasValidWeatherValues(weather);
+    }
+
+    private boolean hasValidWeatherValues(JSONObject weather) {
+        try {
+            int humidity = weather.getInt("humidity");
+            int temperature = weather.getInt("temperature");
+            int windSpeed = weather.getInt("wind_speed");
+
+            return humidity >= 0 && humidity <= 100 &&
+                    temperature >= 0 && temperature <= 120 &&
+                    windSpeed >= 0 && windSpeed <= 50;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isNumber(JSONObject obj, String key) {
+        Object value = obj.opt(key);
+        return value instanceof Number;
+    }
+}
