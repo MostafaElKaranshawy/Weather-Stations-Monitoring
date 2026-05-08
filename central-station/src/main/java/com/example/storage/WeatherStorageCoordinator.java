@@ -8,9 +8,10 @@ public class WeatherStorageCoordinator {
 //    private final BitCask bitCask;
     private final ParquetArchiver parquet;
 
-    public WeatherStorageCoordinator() {
-//        this.bitCask = new BitCask();
-        this.parquet = new ParquetArchiver();
+    // add a second argument BitCask bitCask to the constructor once we have it set up
+    public WeatherStorageCoordinator(ParquetArchiver parquetArchiver) {
+//        this.bitCask = bitcask
+        this.parquet = parquetArchiver;
     }
 
     public void save(WeatherRecord weatherRecord) throws Exception {
