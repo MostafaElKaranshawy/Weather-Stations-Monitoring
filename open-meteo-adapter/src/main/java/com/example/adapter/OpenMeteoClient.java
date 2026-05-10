@@ -1,42 +1,34 @@
 package com.example.adapter;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.net.URI;
+import java.net.http.*;
+import java.time.Duration;
 
 public class OpenMeteoClient {
 
+    // Singleton client to reuse the TCP/TLS connection pool across all requests
+    private static final HttpClient CLIENT = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_2) // Enforce efficient HTTP/2 protocol
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+
+    // Constant URL string so that it can be pre-parsed and optimized by the JVM
+    private static final String WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
+            + "?latitude=31.2000"
+            + "&longitude=29.8999"
+            + "&current=temperature_2m,relative_humidity_2m,wind_speed_10m";
+
     public String fetchWeather() throws Exception {
 
-        String endpoint =
-                "https://api.open-meteo.com/v1/forecast"
-                        + "?latitude=31.2000"
-                        + "&longitude=29.8999"
-                        + "&current=temperature_2m,relative_humidity_2m,wind_speed_10m";
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(WEATHER_URL))
+                .timeout(Duration.ofSeconds(5))
+                .GET()
+                .build();
 
-        URL url = new URL(endpoint);
+        // Blocking execution using the optimized global connection pool
+        HttpResponse<String> response = CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
-        HttpURLConnection connection =
-                (HttpURLConnection) url.openConnection();
-
-        connection.setRequestMethod("GET");
-
-        BufferedReader reader =
-                new BufferedReader(
-                        new InputStreamReader(connection.getInputStream())
-                );
-
-        StringBuilder response = new StringBuilder();
-
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
-        }
-
-        reader.close();
-
-        return response.toString();
+        return response.body();
     }
 }
