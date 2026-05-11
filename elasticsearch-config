@@ -1,0 +1,23 @@
+docker pull docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+
+docker run -d \
+  --name elasticsearch \
+  -p 9200:9200 \
+  -e "discovery.type=single-node" \
+  docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+
+curl -X PUT "http://localhost:9200/weather-records" \
+  -H "Content-Type: application/json" \
+  -d '{"settings":{"number_of_shards":1,"number_of_replicas":0}}'
+
+-- if an error occurred (because of double index), delete all indices created.
+
+-- Kibana UI
+docker pull docker.elastic.co/kibana/kibana:8.13.4
+
+docker run -d \
+  --name kibana \
+  --link elasticsearch:elasticsearch \
+  -p 5601:5601 \
+  -e "ELASTICSEARCH_HOSTS=http://elasticsearch:9200" \
+  docker.elastic.co/kibana/kibana:8.13.4

@@ -8,17 +8,16 @@ import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 
 public class ElasticConfig {
-
     public static ElasticsearchClient getClient() {
-
         RestClient restClient = RestClient.builder(
-                        new HttpHost("localhost", 9200))
+                        new HttpHost("localhost", 9200, "http"))  // explicitly set "http"
+                .setRequestConfigCallback(config -> config
+                        .setConnectTimeout(5000)
+                        .setSocketTimeout(60000))
                 .build();
 
-        RestClientTransport transport =
-                new RestClientTransport(
-                        restClient,
-                        new JacksonJsonpMapper());
+        RestClientTransport transport = new RestClientTransport(
+                restClient, new JacksonJsonpMapper());
 
         return new ElasticsearchClient(transport);
     }
