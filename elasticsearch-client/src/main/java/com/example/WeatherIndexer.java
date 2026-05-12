@@ -22,7 +22,7 @@ public class WeatherIndexer {
                 record -> {
 
                     try {
-                        System.out.println(record.toString());
+//                        System.out.println(record.toString());
                         WeatherRecord wr = mapToWeatherRecord(record);
 
                         client.index(i -> i

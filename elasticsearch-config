@@ -6,11 +6,16 @@ docker run -d \
   -e "discovery.type=single-node" \
   docker.elastic.co/elasticsearch/elasticsearch:8.13.4
 
+-- creating the index
 curl -X PUT "http://localhost:9200/weather-records" \
   -H "Content-Type: application/json" \
   -d '{"settings":{"number_of_shards":1,"number_of_replicas":0}}'
 
--- if an error occurred (because of double index), delete all indices created.
+-- if an error occurred (because of double index), delete all indices created and create the index again using the previous command.
+curl -X DELETE "http://localhost:9200/weather-records"
+
+-- check number of created indices
+curl http://localhost:9200/weather-records/_count?pretty
 
 -- Kibana UI
 docker pull docker.elastic.co/kibana/kibana:8.13.4
@@ -21,3 +26,8 @@ docker run -d \
   -p 5601:5601 \
   -e "ELASTICSEARCH_HOSTS=http://elasticsearch:9200" \
   docker.elastic.co/kibana/kibana:8.13.4
+
+wait few seconds then open http://localhost:5601/
+
+-- dropped metric
+(max(sno) - min(sno)+1 - count())/count() * 100
