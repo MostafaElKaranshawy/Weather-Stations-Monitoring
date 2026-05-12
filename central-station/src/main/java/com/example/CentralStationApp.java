@@ -78,6 +78,15 @@ public class CentralStationApp {
             }
         });
 
+        server.createContext("/bitcask/compact", (exchange) -> {
+            try {
+                bitCask.compact();
+                sendResponse(exchange, "Compaction completed successfully.");
+            } catch (Exception e) {
+                sendResponse(exchange, "Compaction failed: " + e.getMessage(), 500);
+            }
+        });
+
         server.setExecutor(null); // creates a default executor
         server.start();
         System.out.println("[HTTP Server] started on port 8080");
