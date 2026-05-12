@@ -22,7 +22,6 @@ public class WeatherIndexer {
                 record -> {
 
                     try {
-//                        System.out.println(record.toString());
                         WeatherRecord wr = mapToWeatherRecord(record);
 
                         client.index(i -> i
@@ -31,8 +30,7 @@ public class WeatherIndexer {
                         );
 
                     } catch (Exception e) {
-                        System.err.println(e);
-                        System.exit(-1);
+                        System.err.println(e.getMessage());
                     }
                 }
         );
@@ -60,8 +58,6 @@ public class WeatherIndexer {
                 windSpeed
         );
     }
-
-    // ---------- safe converters ----------
 
     private long toLong(Object value) {
         if (value == null) return 0L;
