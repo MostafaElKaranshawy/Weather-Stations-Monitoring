@@ -23,7 +23,6 @@ public class WeatherIndexer {
 
                     try {
                         WeatherRecord wr = mapToWeatherRecord(record);
-
                         client.index(i -> i
                                 .index("weather-records")
                                 .document(wr)

@@ -6,13 +6,12 @@ import com.example.config.ElasticConfig;
 import java.io.File;
 import java.util.Arrays;
 
-public class ElasticSearchClient {
+public class ElasticSearchClientApp {
     public static void main(String[] args) {
         ElasticsearchClient client = ElasticConfig.getClient();
-
         WeatherIndexer indexer = new WeatherIndexer(client);
 
-        File root = new File("/home/moka/data/second term/Data Intensive/Assignments/Weather-Stations-Monitoring/data/parquet");
+        File root = new File("./data/parquet");
 
         if (!root.exists() || !root.isDirectory()) {
             throw new IllegalArgumentException("Invalid root directory");
