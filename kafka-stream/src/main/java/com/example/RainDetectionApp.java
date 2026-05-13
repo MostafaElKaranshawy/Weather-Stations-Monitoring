@@ -45,6 +45,5 @@ public class RainDetectionApp {
         streams.start();
 
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
-        System.out.println("!!!!");
     }
 }
