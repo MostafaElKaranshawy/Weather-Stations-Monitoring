@@ -22,12 +22,6 @@
     </properties>
     <dependencies>
         <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>9.3.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
             <version>1.11.3</version>
@@ -64,36 +58,6 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>9.3.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>9.3.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>9.3.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>9.3.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>9.3.0</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpcore</artifactId>
             <version>4.4.14</version>
@@ -103,12 +67,6 @@
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-client</artifactId>
             <version>8.13.4</version>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
-            <version>20231013</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
