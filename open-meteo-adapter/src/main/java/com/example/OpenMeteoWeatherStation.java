@@ -6,7 +6,7 @@ import com.example.producer.KafkaProducerService;
 
 public class OpenMeteoWeatherStation {
 
-    private static final long STATION_ID = 11;
+    private static final long STATION_ID = -1;
     private long sequence = 0;
 
     private final OpenMeteoClient client = new OpenMeteoClient();
