@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class CentralStationApp {
@@ -26,12 +29,31 @@ public class CentralStationApp {
 
         WeatherKafkaConsumer consumer = new WeatherKafkaConsumer(coordinator);
 
+        // Schedule periodic compaction
+        int compactionInterval = Integer.parseInt(System.getenv().getOrDefault("COMPACTION_INTERVAL_MINS", "1"));
+        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                System.out.println("[Scheduled Compaction] Starting background compaction...");
+                bitCask.compact();
+                System.out.println("[Scheduled Compaction] Background compaction completed successfully.");
+            } catch (Exception e) {
+                System.err.println("[Scheduled Compaction] Error during background compaction: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }, compactionInterval, compactionInterval, TimeUnit.MINUTES);
+
         // Start HTTP Server on port 8080
         startHttpServer(bitCask);
 
-        // Add shutdown hook to close bitcask
+        // Add shutdown hook to close resources
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("Shutting down Central Station...");
+            scheduler.shutdown();
             try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    scheduler.shutdownNow();
+                }
                 bitCask.close();
             } catch (Exception e) {
                 e.printStackTrace();

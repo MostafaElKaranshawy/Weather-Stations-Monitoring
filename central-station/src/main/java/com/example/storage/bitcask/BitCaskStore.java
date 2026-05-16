@@ -14,6 +14,7 @@ public class BitCaskStore implements AutoCloseable {
     private FileChannel activeFileChannel;
     private String activeFileId;
     private long currentOffset = 0;
+    private static final long MAX_FILE_SIZE = 1024 * 1024; // 1 MB limit for segment rotation
 
     public BitCaskStore(String dirPath) throws IOException {
         this.directory = Paths.get(dirPath);
@@ -44,12 +45,17 @@ public class BitCaskStore implements AutoCloseable {
         byte[] keyBytes = key.getBytes();
         int keySize = keyBytes.length;
         int valueSize = value.length;
-        long timestamp = System.currentTimeMillis();
+        int recordSize = 16 + keySize + valueSize;
 
+        if (currentOffset + recordSize > MAX_FILE_SIZE) {
+            rotateActiveFile();
+        }
+
+        long timestamp = System.currentTimeMillis();
         BitCaskFileIO.writeRecordToChannel(activeFileChannel, timestamp, keyBytes, value);
 
         keyDir.put(key, new IndexEntry(activeFileId, valueSize, currentOffset + 16 + keySize, timestamp));
-        currentOffset += (16 + keySize + valueSize);
+        currentOffset += recordSize;
     }
 
     public byte[] get(String key) throws IOException {
