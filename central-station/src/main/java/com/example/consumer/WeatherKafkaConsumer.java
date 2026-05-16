@@ -172,6 +172,13 @@ public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
 
     @Override
     public void close() {
+        try {
+            failureRouter.close();
+        } catch (Exception e) {
+            System.err.println("[Consumer] Error closing failureRouter: " + e.getMessage());
+        }
+        System.out.println("[Consumer] Closing Kafka consumer connection...");
         consumer.close();
     }
+
 }

@@ -49,8 +49,16 @@ public class FailureMessageRouter implements AutoCloseable {
 
     @Override
     public void close() {
-        producer.flush();
-        producer.close();
+        System.out.println("[FailureMessageRouter] Closing failure router producer connections...");
+        if (producer != null) {
+            try {
+                // Wait up to 5 seconds to flush outstanding error messages
+                producer.close(java.time.Duration.ofSeconds(5));
+                System.out.println("[FailureMessageRouter] Closed successfully.");
+            } catch (Exception e) {
+                System.err.println("[FailureMessageRouter] Error closing producer: " + e.getMessage());
+            }
+        }
     }
 
     private String extractKey(String json) {
