@@ -1,5 +1,7 @@
 package com.example.storage.bitcask;
 
+import io.github.cdimascio.dotenv.Dotenv;
+
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.*;
@@ -14,7 +16,8 @@ public class BitCaskStore implements AutoCloseable {
     private FileChannel activeFileChannel;
     private String activeFileId;
     private long currentOffset = 0;
-    private static final long MAX_FILE_SIZE = 1024 * 1024; // 1 MB limit for segment rotation
+    static Dotenv dotenv = Dotenv.load();
+    private static final long MAX_FILE_SIZE = Long.parseLong(dotenv.get("BITCASK_MAX_FILE_SIZE"));
 
     public BitCaskStore(String dirPath) throws IOException {
         this.directory = Paths.get(dirPath);

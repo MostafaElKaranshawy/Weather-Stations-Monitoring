@@ -1,5 +1,6 @@
 package com.example.router;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -12,14 +13,15 @@ import java.util.Properties;
 
 public class FailureMessageRouter implements AutoCloseable {
 
-    private static final String INVALID_TOPIC = "weather_invalid_data";
-    private static final String DEAD_LETTER_TOPIC = "weather_dead_letter";
+    static Dotenv dotenv = Dotenv.load();
+    private static final String INVALID_TOPIC = dotenv.get("INVALID_TOPIC");
+    private static final String DEAD_LETTER_TOPIC = dotenv.get("DEAD_LETTER_TOPIC");
 
     private final KafkaProducer<String, String> producer;
 
     public FailureMessageRouter() {
         Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,   StringSerializer.class.getName());
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         this.producer = new KafkaProducer<>(props);

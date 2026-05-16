@@ -1,5 +1,6 @@
 package com.example.validation;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.json.JSONObject;
 
 import java.time.Duration;
@@ -89,7 +90,8 @@ public class MessageValidator {
     }
 
     private boolean isTimeValid(String json) {
-        long maxRecordAgeHours = 6;
+        Dotenv dotenv = Dotenv.load();
+        long maxRecordAgeHours = Long.parseLong(dotenv.get("MAX_RECORD_AGE_HOURS"));
         JSONObject obj = new JSONObject(json);
         JSONObject metadata = obj.getJSONObject("metadata");
 

@@ -7,6 +7,7 @@ import com.example.router.EnvelopeUnwrapper;
 import com.example.router.FailureMessageRouter;
 import com.example.storage.WeatherStorageCoordinator;
 import com.example.validation.MessageValidator;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.kafka.clients.consumer.*;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
@@ -17,8 +18,9 @@ import java.util.Properties;
 
 public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
 
-    private static final String TOPIC = "weather_data";
-    private static final int MAX_RETRIES = 5;
+    static Dotenv dotenv = Dotenv.load();
+    private static final String TOPIC = dotenv.get("KAFKA_TOPIC");
+    private static final int MAX_RETRIES = Integer.parseInt(dotenv.get("MAX_RETRIES"));
 
     private final KafkaConsumer<String, String> consumer;
 

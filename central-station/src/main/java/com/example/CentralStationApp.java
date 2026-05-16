@@ -5,8 +5,8 @@ import com.example.storage.WeatherStorageCoordinator;
 import com.example.storage.bitcask.BitCaskStore;
 import com.example.storage.parquet.ParquetArchiver;
 import com.sun.net.httpserver.HttpServer;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpExchange;
+import io.github.cdimascio.dotenv.Dotenv;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -15,13 +15,13 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 public class CentralStationApp {
 
     public static void main(String[] args) throws Exception {
+        Dotenv dotenv = Dotenv.load();
         String bitcaskDir = System.getenv()
-                .getOrDefault("BITCASK_DIR", "data/bitcask");
+                .getOrDefault("BITCASK_DIR", dotenv.get("BITCASK_DIR"));
 
         BitCaskStore bitCask = new BitCaskStore(bitcaskDir);
         ParquetArchiver parquet = new ParquetArchiver();
@@ -32,7 +32,7 @@ public class CentralStationApp {
         WeatherKafkaConsumer consumer = new WeatherKafkaConsumer(coordinator);
 
         // Schedule periodic compaction
-        int compactionInterval = Integer.parseInt(System.getenv().getOrDefault("COMPACTION_INTERVAL_MINS", "1"));
+        int compactionInterval = Integer.parseInt(dotenv.get("COMPACTION_INTERVAL_MINS"));
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(() -> {
             try {

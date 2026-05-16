@@ -1,6 +1,7 @@
 package com.example.storage.parquet;
 
 import com.example.model.WeatherRecord;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -26,9 +27,10 @@ import java.util.stream.Collectors;
 
 public class ParquetArchiver implements AutoCloseable {
 
-    private static final int BATCH_SIZE = 1_000;
+    static Dotenv dotenv = Dotenv.load();
+    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("BATCH_SIZE"));
     private static final String BASE_DIR =
-            System.getenv().getOrDefault("PARQUET_BASE_DIR", "./data/parquet");
+            System.getenv().getOrDefault("PARQUET_BASE_DIR", dotenv.get("PARQUET_BASE_DIR"));
 
     private final Schema schema;
     private final List<Future<?>> pendingWrites = new ArrayList<>();
@@ -61,7 +63,6 @@ public class ParquetArchiver implements AutoCloseable {
         // local version of the current batch
         List<WeatherRecord> batch = this.buffer;
         this.buffer = new ArrayList<>(BATCH_SIZE);
-        System.out.println("[Parquet] batch ready for persistence, size=" + batch.size());
         Map<Long, List<WeatherRecord>> recordsByStation = batch.stream()
                 .collect(Collectors.groupingBy(WeatherRecord::getStationId));
 
