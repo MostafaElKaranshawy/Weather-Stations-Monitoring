@@ -19,17 +19,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class ParquetArchiver implements AutoCloseable {
 
-    private static final int BATCH_SIZE = 10_000;
+    private static final int BATCH_SIZE = 1_000;
     private static final String BASE_DIR =
             System.getenv().getOrDefault("PARQUET_BASE_DIR", "./data/parquet");
 
     private final Schema schema;
+    private final List<Future<?>> pendingWrites = new ArrayList<>();
 
     // thread pool
     private final ThreadPoolExecutor writersPool = new ThreadPoolExecutor(
@@ -55,10 +57,11 @@ public class ParquetArchiver implements AutoCloseable {
     }
 
     private void persistParquetToDisk() {
+        pendingWrites.removeIf(Future::isDone);
         // local version of the current batch
         List<WeatherRecord> batch = this.buffer;
         this.buffer = new ArrayList<>(BATCH_SIZE);
-
+        System.out.println("[Parquet] batch ready for persistence, size=" + batch.size());
         Map<Long, List<WeatherRecord>> recordsByStation = batch.stream()
                 .collect(Collectors.groupingBy(WeatherRecord::getStationId));
 
@@ -67,13 +70,15 @@ public class ParquetArchiver implements AutoCloseable {
             long stationId = entry.getKey();
             List<WeatherRecord> stationRecords = entry.getValue();
 
-            writersPool.submit(() -> {
+            Future<?> future = writersPool.submit(() -> {
                 try {
                     writeStationBatch(stationId, stationRecords);
                 } catch (IOException e) {
                     System.err.println("Failed to write Parquet for station " + stationId + ": " + e.getMessage());
                 }
             });
+
+            pendingWrites.add(future);
         }
     }
 
@@ -110,6 +115,9 @@ public class ParquetArchiver implements AutoCloseable {
         if (!buffer.isEmpty())
             persistParquetToDisk();
 
+        for (Future<?> future : pendingWrites)
+            future.get();
+
         writersPool.shutdown();
         if (!writersPool.awaitTermination(60, TimeUnit.SECONDS)) {
             System.err.println("[Parquet] Warning: some write tasks did not finish in time");
@@ -117,7 +125,6 @@ public class ParquetArchiver implements AutoCloseable {
         }
         else
             System.out.println("[Parquet] all buffers persisted to disk");
-
     }
 
     private Schema loadSchema() {

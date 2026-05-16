@@ -27,6 +27,8 @@ public class CentralStationApp {
         ParquetArchiver parquet = new ParquetArchiver();
         WeatherStorageCoordinator coordinator = new WeatherStorageCoordinator(bitCask, parquet);
 
+        // Keep a reference to the main thread since consumer.run() runs on it
+        Thread mainConsumerThread = Thread.currentThread();
         WeatherKafkaConsumer consumer = new WeatherKafkaConsumer(coordinator);
 
         // Schedule periodic compaction
@@ -43,23 +45,58 @@ public class CentralStationApp {
             }
         }, compactionInterval, compactionInterval, TimeUnit.MINUTES);
 
-        // Start HTTP Server on port 8080
         startHttpServer(bitCask);
-
-        // Add shutdown hook to close resources
+        // Shutdown hook to gracefully stop the consumer and close resources
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Shutting down Central Station...");
+            System.out.println("[Shutdown] Shutdown signal received. Stopping Central Station...");
+            // Signal the consumer loop to stop polling
+            System.out.println("[Shutdown] Signaling Kafka consumer to stop...");
+            consumer.stop();
+            // Wait for the main thread executing consumer.run() to fully return
+            try {
+                System.out.println("[Shutdown] Waiting for consumer thread to exit...");
+                mainConsumerThread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            // Now that the consumer loop has fully stopped, we can safely close the consumer connection
+            try {
+                System.out.println("[Shutdown] Closing Kafka consumer connection...");
+                consumer.close();
+            } catch (Exception e) {
+                System.err.println("[Shutdown] Consumer close error: " + e.getMessage());
+            }
+
+            // Shutdown the compaction scheduler to stop any new compactions from starting
+            System.out.println("[Shutdown] Stopping compaction scheduler...");
             scheduler.shutdown();
             try {
                 if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    System.out.println("[Shutdown] Compaction taking too long. Forcing shutdown...");
                     scheduler.shutdownNow();
                 }
-                bitCask.close();
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-        }));
+            // BitCask should be closed before Parquet since Parquet may still be archiving data
+            try {
+                System.out.println("[Shutdown] Flushing and closing BitCask database...");
+                bitCask.close();
+                System.out.println("[Shutdown] BitCask closed successfully.");
+            } catch (Exception e) {
+                System.err.println("[Shutdown] BitCask close error: " + e.getMessage());
+            }
+            // Parquet should be closed last since it may still be archiving data from BitCask during shutdown
+            try {
+                System.out.println("[Shutdown] Flushing and closing Parquet archiver...");
+                parquet.close();
+                System.out.println("[Shutdown] Parquet closed successfully.");
+            } catch (Exception e) {
+                System.err.println("[Shutdown] Parquet close error: " + e.getMessage());
+            }
 
+            System.out.println("[Shutdown] Central Station shutdown complete.");
+        }, "central-station-shutdown-hook"));
         // Runs forever on the main thread — Ctrl+C to stop
         consumer.run();
     }

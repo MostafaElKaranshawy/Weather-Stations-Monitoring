@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 
-public class WeatherKafkaConsumer implements Runnable {
+public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
 
     private static final String TOPIC = "weather_data";
     private static final int MAX_RETRIES = 5;
@@ -74,30 +74,37 @@ public class WeatherKafkaConsumer implements Runnable {
     public void run() {
         System.out.println("[Consumer] started, listening on: " + TOPIC);
 
-        while (running) {
-            // Polling consumer pattern:
-            // poll() asks Kafka "give me any available messages, wait up to
-            // 500ms if there are none right now."
-            // It returns a batch — could be 0, 1, or many records.
-            ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+        try {
+            while (running) {
+                // Polling consumer pattern:
+                // poll() asks Kafka "give me any available messages, wait up to
+                // 500ms if there are none right now."
+                // It returns a batch — could be 0, 1, or many records.
+                ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
+                try {
+                    for (ConsumerRecord<String, String> record : records) {
+                        boolean success = processOneRecordWithRetry(record);
 
-            try {
-                for (ConsumerRecord<String, String> record : records) {
-                    boolean success = processOneRecordWithRetry(record);
-
-                    if (!success)
-                        failureRouter.sendToDeadLetterChannel(record.value());
+                        if (!success)
+                            failureRouter.sendToDeadLetterChannel(record.value());
+                    }
                 }
-            }
-            catch (Exception e) {
-                System.out.println("[Consumer] error processing batch: " + e.getMessage());
-            }
-            // If we actually received something and processed it, then we should move the offset forward.
-            // If it's an empty batch, we just loop back and poll again without committing. And If failure happened,
-            // the whole batch will be resent so it should be handled at IdempotentReceiver (Yarab Ya3ny)
-            if (!records.isEmpty())
-                consumer.commitSync();
+                catch (Exception e) {
+                    System.out.println("[Consumer] error processing batch: " + e.getMessage());
+                }
+                // If we actually received something and processed it, then we should move the offset forward.
+                // If it's an empty batch, we just loop back and poll again without committing. And If failure happened,
+                // the whole batch will be resent so it should be handled at IdempotentReceiver (Yarab Ya3ny)
+                if (!records.isEmpty())
+                    consumer.commitSync();
 
+            }
+        } catch (org.apache.kafka.common.errors.WakeupException e) {
+            // This is an expected exception thrown by consumer.poll() when consumer.wakeup() is executed.
+            // It breaks us out of the while loop cleanly to allow graceful termination without errors.
+            System.out.println("[Consumer] Received wakeup signal. Stopping poll loop smoothly...");
+        } finally {
+            System.out.println("[Consumer] Polling loop fully terminated.");
         }
     }
 
@@ -153,6 +160,18 @@ public class WeatherKafkaConsumer implements Runnable {
     private void sleepBackoff(int attempt) {
         try {
             Thread.sleep(50L * attempt);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt(); // restore interrupt flag, don't swallow it
+        }
+    }
+
+    public void stop() {
+        running = false;
+        consumer.wakeup(); // unblocks poll() immediately instead of waiting 500ms
+    }
+
+    @Override
+    public void close() {
+        consumer.close();
     }
 }
