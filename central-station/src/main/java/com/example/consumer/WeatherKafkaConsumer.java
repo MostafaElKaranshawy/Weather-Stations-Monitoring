@@ -1,5 +1,6 @@
 package com.example.consumer;
 
+import com.example.exception.ValidationException;
 import com.example.idempotency.IdempotentReceiver;
 import com.example.model.WeatherRecord;
 import com.example.router.EnvelopeUnwrapper;
@@ -17,6 +18,8 @@ import java.util.Properties;
 public class WeatherKafkaConsumer implements Runnable {
 
     private static final String TOPIC = "weather_data";
+    private static final int MAX_RETRIES = 5;
+
     private final KafkaConsumer<String, String> consumer;
 
     // validates message structure and field values before we do anything else
@@ -31,6 +34,7 @@ public class WeatherKafkaConsumer implements Runnable {
     // writes valid records to BitCask (latest) and Parquet (full archive)
     private final WeatherStorageCoordinator storageCoordinator;
 
+    private final IdempotentReceiver idempotentReceiver;
 
     private volatile boolean running = true;
 
@@ -59,6 +63,7 @@ public class WeatherKafkaConsumer implements Runnable {
         this.validator = new MessageValidator();
         this.failureRouter = new FailureMessageRouter();
         this.unwrapper = new EnvelopeUnwrapper();
+        this.idempotentReceiver = new IdempotentReceiver();
 
         // needs to be passed from outside to prevent coupling
         this.storageCoordinator = storageCoordinator;
@@ -76,48 +81,63 @@ public class WeatherKafkaConsumer implements Runnable {
             // It returns a batch — could be 0, 1, or many records.
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
 
-            for (ConsumerRecord<String, String> record : records) {
+            try {
+                for (ConsumerRecord<String, String> record : records) {
+                    boolean success = processOneRecordWithRetry(record);
 
-                try {
-                    processOneRecord(record);
-                } catch (Exception e) {
-                    // should I handle exceptions differently?
-                    System.err.printf("[Consumer] unexpected error at offset %d on partition %d: %s%n",
-                            record.offset(), record.partition(), e.getMessage()
-                    );
+                    if (!success)
+                        failureRouter.sendToDeadLetterChannel(record.value());
                 }
+            }
+            catch (Exception e) {
+                System.out.println("[Consumer] error processing batch: " + e.getMessage());
+            }
+            // If we actually received something and processed it, then we should move the offset forward.
+            // If it's an empty batch, we just loop back and poll again without committing. And If failure happened,
+            // the whole batch will be resent so it should be handled at IdempotentReceiver (Yarab Ya3ny)
+            if (!records.isEmpty())
+                consumer.commitSync();
 
-                // If we actually received something and processed it, then we should move the offset forward.
-                // If it's an empty batch, we just loop back and poll again without committing. And If failure happened,
-                // the whole batch will be resent so it should be handled at IdempotentReceiver (Yarab Ya3ny)
-                if (!records.isEmpty())
-                    consumer.commitSync();
+        }
+    }
 
+    private boolean processOneRecordWithRetry(ConsumerRecord<String, String> record) {
+
+        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+                processOneRecord(record);
+                return true;
+            } catch (ValidationException e) {
+                failureRouter.sendToInvalidChannel(record.value());
+                return true;
+            } catch (Exception e) {
+                // sleep for a while before retrying
+                sleepBackoff(attempt);
             }
         }
+
+        return false;
     }
 
     private void processOneRecord(ConsumerRecord<String, String> record) throws Exception {
         String rawJSON = record.value();
 
         // 1. validate and route to failure topics if needed
-        if (!validator.isValidJSON(rawJSON)) {
-            failureRouter.route(rawJSON);
-            return;
-        }
+        if (!validator.isValidJSON(rawJSON))
+            throw new ValidationException();
+
 
         // 2. parse JSON into WeatherRecord object
         // Optional for the case my checks are damg (if I forgot anything ya3ny)
         Optional<WeatherRecord> maybeRecord = unwrapper.unwrap(rawJSON);
-        if (maybeRecord.isEmpty()) {
-            failureRouter.route(rawJSON);
-            return;
-        }
+        if (maybeRecord.isEmpty())
+            throw new ValidationException();
+
 
         WeatherRecord weatherRecord = maybeRecord.get();
 
         // 3. check for duplicate deliveries
-        if (!IdempotentReceiver.shouldProcess(weatherRecord.getStationId(), weatherRecord.getSNo())) {
+        if (!idempotentReceiver.shouldProcess(weatherRecord.getStationId(), weatherRecord.getSNo())) {
             System.out.printf("[Consumer] skipping duplicate message for station %d with sNo %d%n",
                     weatherRecord.getStationId(), weatherRecord.getSNo());
             return;
@@ -128,5 +148,11 @@ public class WeatherKafkaConsumer implements Runnable {
         // BitCask  → stores only the LATEST value per station (fast lookups)
         // Parquet  → stores EVERY message (full historical archive)
         storageCoordinator.save(weatherRecord);
+    }
+
+    private void sleepBackoff(int attempt) {
+        try {
+            Thread.sleep(50L * attempt);
+        } catch (InterruptedException ignored) {}
     }
 }
