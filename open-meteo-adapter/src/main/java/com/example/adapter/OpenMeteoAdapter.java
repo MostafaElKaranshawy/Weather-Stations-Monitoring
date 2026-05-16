@@ -6,7 +6,7 @@ import org.json.JSONObject;
 
 public class OpenMeteoAdapter {
 
-    private static final long STATION_ID = 11;
+    private static final long STATION_ID = -1;
 
     public String adapt(long sNo, String apiResponse) {
 
