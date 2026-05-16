@@ -33,46 +33,31 @@ public class WeatherIndexer {
         ParquetFilesReader.readParquet(
                 parquetFile.getAbsolutePath(),
                 record -> {
-
                     try {
-
-                        WeatherRecord wr =
-                                mapToWeatherRecord(record);
-
+                        WeatherRecord wr = mapToWeatherRecord(record);
+                        System.out.println(record);
                         batch.add(wr);
-
                         if (batch.size() >= BATCH_SIZE) {
-
                             bulkIndex(batch);
-
                             batch.clear();
                         }
-
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
         );
 
-        /*
-         * Index remaining docs
-         */
         if (!batch.isEmpty()) {
             bulkIndex(batch);
         }
     }
 
-    private void bulkIndex(List<WeatherRecord> records)
-            throws Exception {
+    private void bulkIndex(List<WeatherRecord> records) throws Exception {
 
-        BulkRequest.Builder br =
-                new BulkRequest.Builder();
+        BulkRequest.Builder br = new BulkRequest.Builder();
 
         for (WeatherRecord wr : records) {
-
-            String docId =
-                    wr.getStationId() + "_" + wr.getSNo();
-
+            String docId = wr.getStationId() + "_" + wr.getSNo();
             br.operations(op -> op
                     .index(idx -> idx
                             .index("weather-records")
@@ -82,50 +67,31 @@ public class WeatherIndexer {
             );
         }
 
-        BulkResponse response =
-                client.bulk(br.build());
+        BulkResponse response = client.bulk(br.build());
 
         if (response.errors()) {
-
             System.err.println("Bulk indexing errors:");
-
             response.items().forEach(item -> {
-
                 if (item.error() != null) {
-
                     System.err.println(item.error().reason());
                 }
             });
         }
     }
 
-    private WeatherRecord mapToWeatherRecord(
-            GenericRecord record) {
+    private WeatherRecord mapToWeatherRecord(GenericRecord record) {
 
-        long stationId =
-                toLong(record.get("station_id"));
+        long stationId = toLong(record.get("station_id"));
+        long sNo = toLong(record.get("s_no"));
 
-        long sNo =
-                toLong(record.get("s_no"));
+        String batteryStatus = record.get("battery_status") != null
+                ? record.get("battery_status").toString().toUpperCase()
+                : "LOW";
 
-        String batteryStatus =
-                record.get("battery_status") != null
-                        ? record.get("battery_status")
-                        .toString()
-                        .toUpperCase()
-                        : "LOW";
-
-        long timestamp =
-                toLong(record.get("status_timestamp"));
-
-        int humidity =
-                toInt(record.get("humidity"));
-
-        int temperature =
-                toInt(record.get("temperature"));
-
-        int windSpeed =
-                toInt(record.get("wind_speed"));
+        long timestamp = toLong(record.get("status_timestamp"));
+        int humidity = toInt(record.get("humidity"));
+        int temperature = toInt(record.get("temperature"));
+        int windSpeed = toInt(record.get("wind_speed"));
 
         return new WeatherRecord(
                 stationId,
@@ -139,16 +105,12 @@ public class WeatherIndexer {
     }
 
     private long toLong(Object value) {
-
         if (value == null) return 0L;
-
         return Long.parseLong(value.toString());
     }
 
     private int toInt(Object value) {
-
         if (value == null) return 0;
-
         return Integer.parseInt(value.toString());
     }
 }

@@ -1,6 +1,7 @@
 package com.example;
 
 import java.nio.file.*;
+import java.util.Set;
 import java.util.concurrent.*;
 
 public class ParquetWatcherService {
@@ -13,6 +14,9 @@ public class ParquetWatcherService {
 
     private final ExecutorService indexingPool =
             Executors.newFixedThreadPool(4);
+
+    private final Set<Path> inFlightFiles =
+            ConcurrentHashMap.newKeySet();
 
     public ParquetWatcherService(
             Path baseDir,
@@ -35,17 +39,12 @@ public class ParquetWatcherService {
         Files.walk(start)
                 .filter(Files::isDirectory)
                 .forEach(dir -> {
-
                     try {
-
                         dir.register(
                                 watchService,
-                                StandardWatchEventKinds.ENTRY_CREATE,
-                                StandardWatchEventKinds.ENTRY_MODIFY
+                                StandardWatchEventKinds.ENTRY_CREATE
                         );
-
                         System.out.println("Watching: " + dir);
-
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -53,11 +52,11 @@ public class ParquetWatcherService {
     }
 
     private void initialScan() throws Exception {
-        try{
+        try {
             Files.walk(baseDir)
-                .filter(Files::isRegularFile)
-                .filter(this::isParquetFile)
-                .forEach(this::submitIndexingTask);
+                    .filter(Files::isRegularFile)
+                    .filter(this::isParquetFile)
+                    .forEach(this::submitIndexingTask);
         } catch (Exception e) {
             throw new Exception(e);
         }
@@ -75,27 +74,21 @@ public class ParquetWatcherService {
 
                 WatchEvent.Kind<?> kind = event.kind();
 
-                Path relativePath =
-                        (Path) event.context();
+                Path relativePath = (Path) event.context();
 
-                Path fullPath =
-                        dir.resolve(relativePath);
+                Path fullPath = dir.resolve(relativePath);
 
                 System.out.println(kind + ": " + fullPath);
 
-                /*
-                 * Register new directories
-                 */
                 if (kind == StandardWatchEventKinds.ENTRY_CREATE
                         && Files.isDirectory(fullPath)) {
 
                     registerAll(fullPath);
                 }
 
-                /*
-                 * Index parquet files
-                 */
-                if (isParquetFile(fullPath)) {
+                if (kind == StandardWatchEventKinds.ENTRY_CREATE
+                        && Files.isRegularFile(fullPath)
+                        && isParquetFile(fullPath)) {
 
                     submitIndexingTask(fullPath);
                 }
@@ -107,8 +100,7 @@ public class ParquetWatcherService {
 
     private boolean isParquetFile(Path path) {
 
-        String name =
-                path.getFileName().toString();
+        String name = path.getFileName().toString();
 
         return name.endsWith(".parquet")
                 && !name.startsWith(".")
@@ -117,21 +109,28 @@ public class ParquetWatcherService {
 
     private void submitIndexingTask(Path parquetPath) {
 
+        Path canonical;
+        try {
+            canonical = parquetPath.toRealPath();
+        } catch (Exception e) {
+            canonical = parquetPath.toAbsolutePath().normalize();
+        }
+
+        if (!inFlightFiles.add(canonical)) {
+            System.out.println("Skipping already-queued: " + canonical);
+            return;
+        }
+
+        final Path finalPath = canonical;
+
         indexingPool.submit(() -> {
-
             try {
-
-                /*
-                 * Wait for writes to finish
-                 */
                 Thread.sleep(2000);
-
-                weatherIndexer.indexParquetFile(
-                        parquetPath.toFile()
-                );
-
+                weatherIndexer.indexParquetFile(finalPath.toFile());
             } catch (Exception e) {
                 e.printStackTrace();
+            } finally {
+                inFlightFiles.remove(finalPath);
             }
         });
     }
