@@ -1,5 +1,5 @@
 package com.example.model;
 
 public enum BatteryStatus {
-    LOW, MEDIUM, HIGH
+    LOW, MEDIUM, HIGH, NA
 }
