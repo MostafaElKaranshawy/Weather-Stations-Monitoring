@@ -33,12 +33,11 @@ public class RainDetectionApp {
 
         // Step 2: Filter humidity > 70
         KStream<String, String> rainStream = stream.filter(
-                (key, value) -> WeatherParser.isRaining(value)
+                (key, value) -> (WeatherParser.isTimeValid(value) && WeatherParser.isRaining(value))
         );
 
         // Step 3: Send to another topic
         rainStream.to(outputTopic);
-
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
 
         // Shutdown Hook
