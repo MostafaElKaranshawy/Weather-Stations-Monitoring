@@ -12,6 +12,7 @@
         <module>weather-station</module>
         <module>kafka-stream</module>
         <module>central-station</module>
+        <module>open-meteo-adapter</module>
     </modules>
 
     <properties>
