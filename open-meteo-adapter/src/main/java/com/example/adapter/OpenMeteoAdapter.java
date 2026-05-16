@@ -2,11 +2,13 @@ package com.example.adapter;
 import com.example.model.BatteryStatus;
 import com.example.model.Weather;
 import com.example.model.WeatherMessage;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.json.JSONObject;
 
 public class OpenMeteoAdapter {
 
-    private static final long STATION_ID = -1;
+    private static final Dotenv dotenv = Dotenv.load();
+    private static final long STATION_ID = Long.parseLong(dotenv.get("STATION_ID"));
 
     public String adapt(long sNo, String apiResponse) {
 

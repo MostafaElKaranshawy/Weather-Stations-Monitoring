@@ -23,9 +23,7 @@ public class WeatherStation implements Runnable {
 
             generator.generate(stationId, sequence).ifPresent(message -> {
                 String json = message.toJson();
-                if (json != null && !json.isBlank()) { // Prevents sending empty messages (to simulate dropped messages)
-                    producer.send(String.valueOf(stationId), json);
-                }
+                producer.send(String.valueOf(stationId), json);
             });
 
             long elapsedTime = System.currentTimeMillis() - startTime; // almost zero, only around half a second at first time
