@@ -37,7 +37,7 @@ public class ParquetArchiver implements AutoCloseable {
 
     // thread pool
     private final ThreadPoolExecutor writersPool = new ThreadPoolExecutor(
-            Math.min(10, Runtime.getRuntime().availableProcessors()),
+            Math.min(10, Runtime.getRuntime().availableProcessors()*0.9),
             Runtime.getRuntime().availableProcessors(),
             60L, TimeUnit.SECONDS,
             new ArrayBlockingQueue<>(100),
