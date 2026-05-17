@@ -8,6 +8,7 @@ import com.example.model.BatteryStatus;
 import com.example.model.WeatherRecord;
 import com.example.storage.ParquetFilesReader;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.avro.generic.GenericRecord;
 
 import java.io.File;
@@ -15,11 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class WeatherIndexer {
-
+    static Dotenv dotenv = Dotenv.load();
     private final ElasticsearchClient client;
 
-    private static final int BATCH_SIZE = 1000;
-
+    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("INDEXING_BATCH_SIZE"));
+    private static final String INDEX_NAME = dotenv.get("ELASTICSEARCH_INDEX_NAME");
     public WeatherIndexer(ElasticsearchClient client) {
         this.client = client;
     }
@@ -57,7 +58,7 @@ public class WeatherIndexer {
             String docId = wr.getStationId() + "_" + wr.getSNo();
             br.operations(op -> op
                     .index(idx -> idx
-                            .index("weather-records")
+                            .index(INDEX_NAME)
                             .id(docId)
                             .document(wr)
                     )
