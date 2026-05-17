@@ -27,10 +27,10 @@ import java.util.stream.Collectors;
 
 public class ParquetArchiver implements AutoCloseable {
 
-    static Dotenv dotenv = Dotenv.load();
-    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("BATCH_SIZE"));
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("BATCH_SIZE") != null ? dotenv.get("BATCH_SIZE") : System.getenv().getOrDefault("BATCH_SIZE", ""));
     private static final String BASE_DIR =
-            System.getenv().getOrDefault("PARQUET_BASE_DIR", dotenv.get("PARQUET_BASE_DIR"));
+            System.getenv().getOrDefault("PARQUET_BASE_DIR", dotenv.get("PARQUET_BASE_DIR") != null ? dotenv.get("PARQUET_BASE_DIR") : System.getenv().getOrDefault("PARQUET_BASE_DIR", ""));
 
     private final Schema schema;
     private final List<Future<?>> pendingWrites = new ArrayList<>();

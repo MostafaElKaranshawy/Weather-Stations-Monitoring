@@ -90,8 +90,8 @@ public class MessageValidator {
     }
 
     private boolean isTimeValid(String json) {
-        Dotenv dotenv = Dotenv.load();
-        long maxRecordAgeHours = Long.parseLong(dotenv.get("MAX_RECORD_AGE_HOURS"));
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        long maxRecordAgeHours = Long.parseLong(dotenv.get("MAX_RECORD_AGE_HOURS") != null ? dotenv.get("MAX_RECORD_AGE_HOURS") : System.getenv().getOrDefault("MAX_RECORD_AGE_HOURS", ""));
         JSONObject obj = new JSONObject(json);
         JSONObject metadata = obj.getJSONObject("metadata");
 

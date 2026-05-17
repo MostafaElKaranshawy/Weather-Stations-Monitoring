@@ -13,14 +13,14 @@ public class ElasticSearchClientApp {
         ParquetWatcherService watcher = null;
 
         try {
-            Dotenv dotenv = Dotenv.load();
+            Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
             ElasticsearchClient client = ElasticConfig.getClient();
 
             WeatherIndexer weatherIndexer = new WeatherIndexer(client);
 
             // Parquet files path
-            File root = new File(dotenv.get("PARQUET_ROOT_DIR"));
+            File root = new File(dotenv.get("PARQUET_ROOT_DIR") != null ? dotenv.get("PARQUET_ROOT_DIR") : System.getenv().getOrDefault("PARQUET_ROOT_DIR", ""));
 
             // Base folder not created yet by the central station, create it now.
             if (!root.exists()) {

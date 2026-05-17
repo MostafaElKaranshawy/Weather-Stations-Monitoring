@@ -19,9 +19,9 @@ import java.util.concurrent.TimeUnit;
 public class CentralStationApp {
 
     public static void main(String[] args) throws Exception {
-        Dotenv dotenv = Dotenv.load();
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String bitcaskDir = System.getenv()
-                .getOrDefault("BITCASK_DIR", dotenv.get("BITCASK_DIR"));
+                .getOrDefault("BITCASK_DIR", dotenv.get("BITCASK_DIR") != null ? dotenv.get("BITCASK_DIR") : System.getenv().getOrDefault("BITCASK_DIR", ""));
 
         BitCaskStore bitCask = new BitCaskStore(bitcaskDir);
         ParquetArchiver parquet = new ParquetArchiver();
@@ -32,7 +32,7 @@ public class CentralStationApp {
         WeatherKafkaConsumer consumer = new WeatherKafkaConsumer(coordinator);
 
         // Schedule periodic compaction
-        int compactionInterval = Integer.parseInt(dotenv.get("COMPACTION_INTERVAL_MINS"));
+        int compactionInterval = Integer.parseInt(dotenv.get("COMPACTION_INTERVAL_MINS") != null ? dotenv.get("COMPACTION_INTERVAL_MINS") : System.getenv().getOrDefault("COMPACTION_INTERVAL_MINS", ""));
         ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(() -> {
             try {

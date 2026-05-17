@@ -10,20 +10,20 @@ import java.nio.file.Paths;
 
 public class WeatherStation implements Runnable {
 
-    static Dotenv dotenv = Dotenv.load();
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private final long stationId;
     private String sequenceFile;
     private long sequence = 0;
     private int requestCounter = 0;
-    private static final long REQUEST_INTERVAL  = Long.parseLong(dotenv.get("REQUEST_INTERVAL"));
-    private static final int BACKUP_INTERVAL_REQUESTS = Integer.parseInt(dotenv.get("BACKUP_INTERVAL_REQUESTS"));
+    private static final long REQUEST_INTERVAL  = Long.parseLong(dotenv.get("REQUEST_INTERVAL") != null ? dotenv.get("REQUEST_INTERVAL") : System.getenv().getOrDefault("REQUEST_INTERVAL", ""));
+    private static final int BACKUP_INTERVAL_REQUESTS = Integer.parseInt(dotenv.get("BACKUP_INTERVAL_REQUESTS") != null ? dotenv.get("BACKUP_INTERVAL_REQUESTS") : System.getenv().getOrDefault("BACKUP_INTERVAL_REQUESTS", ""));
 
     private final WeatherDataGenerator generator = new WeatherDataGenerator();
     private final KafkaProducerService producer = new KafkaProducerService();
 
     public WeatherStation(long stationId) {
         this.stationId = stationId;
-        this.sequenceFile = "station_" + stationId + "_"+ dotenv.get("SEQUENCE_FILE");
+        this.sequenceFile = "station_" + stationId + "_"+ dotenv.get("SEQUENCE_FILE") != null ? dotenv.get("SEQUENCE_FILE") : System.getenv().getOrDefault("SEQUENCE_FILE", "");
         this.sequence = loadSequence();
     }
 

@@ -8,7 +8,7 @@ import java.time.Duration;
 
 public class OpenMeteoClient {
 
-    private static final Dotenv dotenv = Dotenv.load();
+    private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
     // Singleton client to reuse the TCP/TLS connection pool across all requests
     private static final HttpClient CLIENT = HttpClient.newBuilder()
@@ -16,8 +16,8 @@ public class OpenMeteoClient {
             .connectTimeout(Duration.ofSeconds(5))
             .build();
 
-    static String latitude = dotenv.get("WEATHER_API_LATITUDE");
-    static String longitude = dotenv.get("WEATHER_API_LONGITUDE");
+    static String latitude = dotenv.get("WEATHER_API_LATITUDE") != null ? dotenv.get("WEATHER_API_LATITUDE") : System.getenv().getOrDefault("WEATHER_API_LATITUDE", "");
+    static String longitude = dotenv.get("WEATHER_API_LONGITUDE") != null ? dotenv.get("WEATHER_API_LONGITUDE") : System.getenv().getOrDefault("WEATHER_API_LONGITUDE", "");
     // Constant URL string so that it can be pre-parsed and optimized by the JVM
     private static final String WEATHER_URL = "https://api.open-meteo.com/v1/forecast"
             + "?latitude=" + latitude

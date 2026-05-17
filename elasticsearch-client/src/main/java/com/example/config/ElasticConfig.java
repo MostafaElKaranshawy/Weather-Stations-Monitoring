@@ -12,9 +12,9 @@ import java.io.IOException;
 
 public class ElasticConfig {
 
-    static Dotenv dotenv = Dotenv.load();
-    static String HOST = dotenv.get("ELASTICSEARCH_HOSTNAME");
-    static Integer PORT = Integer.parseInt(dotenv.get("ELASTICSEARCH_PORT"));
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    static String HOST = dotenv.get("ELASTICSEARCH_HOSTNAME") != null ? dotenv.get("ELASTICSEARCH_HOSTNAME") : System.getenv().getOrDefault("ELASTICSEARCH_HOSTNAME", "");
+    static Integer PORT = Integer.parseInt(dotenv.get("ELASTICSEARCH_PORT") != null ? dotenv.get("ELASTICSEARCH_PORT") : System.getenv().getOrDefault("ELASTICSEARCH_PORT", ""));
 
     private static final RestClient restClient;
     private static final ElasticsearchClient elasticsearchClient;

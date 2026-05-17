@@ -13,15 +13,15 @@ import java.util.Properties;
 
 public class FailureMessageRouter implements AutoCloseable {
 
-    static Dotenv dotenv = Dotenv.load();
-    private static final String INVALID_TOPIC = dotenv.get("INVALID_TOPIC");
-    private static final String DEAD_LETTER_TOPIC = dotenv.get("DEAD_LETTER_TOPIC");
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    private static final String INVALID_TOPIC = dotenv.get("INVALID_TOPIC") != null ? dotenv.get("INVALID_TOPIC") : System.getenv().getOrDefault("INVALID_TOPIC", "");
+    private static final String DEAD_LETTER_TOPIC = dotenv.get("DEAD_LETTER_TOPIC") != null ? dotenv.get("DEAD_LETTER_TOPIC") : System.getenv().getOrDefault("DEAD_LETTER_TOPIC", "");
 
     private final KafkaProducer<String, String> producer;
 
     public FailureMessageRouter() {
         Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS") != null ? dotenv.get("KAFKA_BOOTSTRAP_SERVERS") : System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", ""));
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,   StringSerializer.class.getName());
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         this.producer = new KafkaProducer<>(props);

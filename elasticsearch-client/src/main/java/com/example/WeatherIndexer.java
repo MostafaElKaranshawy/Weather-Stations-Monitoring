@@ -17,11 +17,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class WeatherIndexer {
-    static Dotenv dotenv = Dotenv.load();
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private final ElasticsearchClient client;
 
-    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("INDEXING_BATCH_SIZE"));
-    private static final String INDEX_NAME = dotenv.get("ELASTICSEARCH_INDEX_NAME");
+    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("INDEXING_BATCH_SIZE") != null ? dotenv.get("INDEXING_BATCH_SIZE") : System.getenv().getOrDefault("INDEXING_BATCH_SIZE", ""));
+    private static final String INDEX_NAME = dotenv.get("ELASTICSEARCH_INDEX_NAME") != null ? dotenv.get("ELASTICSEARCH_INDEX_NAME") : System.getenv().getOrDefault("ELASTICSEARCH_INDEX_NAME", "");
 
     // Client Injection.
     public WeatherIndexer(ElasticsearchClient client) {
