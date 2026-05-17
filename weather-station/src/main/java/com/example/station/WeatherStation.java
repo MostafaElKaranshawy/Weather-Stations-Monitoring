@@ -23,7 +23,6 @@ public class WeatherStation implements Runnable {
 
             generator.generate(stationId, sequence).ifPresent(message -> {
                 String json = message.toJson();
-                // send to Kafka
                 producer.send(String.valueOf(stationId), json);
             });
 
