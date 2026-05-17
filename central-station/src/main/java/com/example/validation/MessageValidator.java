@@ -52,7 +52,7 @@ public class MessageValidator {
             String status = metadata.getString("battery_status");
             if (status == null) return false;
             String lower = status.toLowerCase().trim();
-            return "low".equals(lower) || "medium".equals(lower) || "high".equals(lower);
+            return "low".equals(lower) || "medium".equals(lower) || "high".equals(lower) || "na".equals(lower);
         } catch (Exception e) {
             return false;
         }
