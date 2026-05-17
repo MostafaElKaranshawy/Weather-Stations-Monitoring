@@ -2,52 +2,48 @@ package com.example;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.example.config.ElasticConfig;
-
+import io.github.cdimascio.dotenv.Dotenv;
 import java.io.File;
-import java.util.Arrays;
+
 
 public class ElasticSearchClientApp {
-    public static void main(String[] args) {
-        ElasticsearchClient client = ElasticConfig.getClient();
-        WeatherIndexer indexer = new WeatherIndexer(client);
 
-        File root = new File("./data/parquet");
 
-        if (!root.exists() || !root.isDirectory()) {
-            throw new IllegalArgumentException("Invalid root directory");
-        }
+    public static void main(String[] args)
+            throws Exception {
 
-        File[] dateFolders = root.listFiles();
-        if (dateFolders == null) return;
+        Dotenv dotenv = Dotenv.load();
 
-        for (File dateFolder : dateFolders) {
+        ElasticsearchClient client =
+                ElasticConfig.getClient();
 
-            if (!dateFolder.isDirectory()) continue;
+        WeatherIndexer weatherIndexer =
+                new WeatherIndexer(client);
 
-            File[] stationFolders = dateFolder.listFiles();
-            if (stationFolders == null) continue;
+        File root =
+                new File(dotenv.get("PARQUET_ROOT_DIR"));
 
-            for (File stationFolder : stationFolders) {
-
-                if (!stationFolder.isDirectory()) continue;
-
-                File[] parquetFiles = stationFolder.listFiles(
-                        (dir, name) -> name.endsWith(".parquet")
+        ParquetWatcherService watcher =
+                new ParquetWatcherService(
+                        root.toPath(),
+                        weatherIndexer
                 );
 
-                if (parquetFiles == null) continue;
 
-                Arrays.stream(parquetFiles).forEach(file -> {
-                    try {
-                        indexer.indexParquetFile(file);
-                    } catch (Exception e) {
-                        System.err.println("Failed file: " + file.getName());
-                        e.printStackTrace();
-                    }
-                });
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                System.out.println("Shutting down application...");
+                watcher.stop();
+                ElasticConfig.close();
+                System.out.println("Application shutdown complete.");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
+        }));
+        try{
+            watcher.start();
+        } catch (Exception e) {
+            System.exit(1);
         }
-
-        System.out.println("Indexing completed.");
     }
 }
