@@ -1,5 +1,6 @@
 package com.example.producer;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -7,13 +8,14 @@ import java.util.Properties;
 
 public class KafkaProducerService {
 
+    Dotenv dotenv = Dotenv.load();
     private final KafkaProducer<String, String> producer;
-    private final String topic = "weather_data";
+    private final String topic = dotenv.get("KAFKA_TOPIC");
 
     public KafkaProducerService() {
         Properties props = new Properties();
 
-        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
         props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
@@ -27,6 +29,7 @@ public class KafkaProducerService {
     }
 
     public void close() {
+        System.out.println("Closing Kafka producer...");
         producer.flush(); // Force send everything in memory
         producer.close(); // Close the connection
     }
