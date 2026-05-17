@@ -26,8 +26,6 @@ public class WeatherIndexer {
 
     public void indexParquetFile(File parquetFile) throws Exception {
 
-        System.out.println("Indexing: " + parquetFile);
-
         List<WeatherRecord> batch = new ArrayList<>();
 
         ParquetFilesReader.readParquet(
@@ -35,7 +33,6 @@ public class WeatherIndexer {
                 record -> {
                     try {
                         WeatherRecord wr = mapToWeatherRecord(record);
-                        System.out.println(record);
                         batch.add(wr);
                         if (batch.size() >= BATCH_SIZE) {
                             bulkIndex(batch);

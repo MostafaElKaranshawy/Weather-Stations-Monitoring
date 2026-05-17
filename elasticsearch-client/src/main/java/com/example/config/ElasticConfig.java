@@ -1,9 +1,10 @@
 package com.example.config;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.nodes.Ingest;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.RestClient;
 
@@ -11,12 +12,16 @@ import java.io.IOException;
 
 public class ElasticConfig {
 
+    static Dotenv dotenv = Dotenv.load();
+    static String HOST = dotenv.get("ELASTICSEARCH_HOSTNAME");
+    static Integer PORT = Integer.parseInt(dotenv.get("ELASTICSEARCH_PORT"));
+
     private static final RestClient restClient;
     private static final ElasticsearchClient elasticsearchClient;
 
     static {
         restClient = RestClient.builder(
-                        new HttpHost("localhost", 9200, "http"))
+                        new HttpHost(HOST, PORT, "http"))
                 .setRequestConfigCallback(config -> config
                         .setConnectTimeout(5000)
                         .setSocketTimeout(60000))
@@ -27,15 +32,6 @@ public class ElasticConfig {
 
         elasticsearchClient = new ElasticsearchClient(transport);
 
-        // Shutdown hook
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            try {
-                System.out.println("Closing Elasticsearch client...");
-                restClient.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }));
     }
 
     public static ElasticsearchClient getClient() {
@@ -45,6 +41,7 @@ public class ElasticConfig {
     public static void close() {
         try {
             restClient.close();
+            System.out.println("Elasticsearch client closed successfully.");
         } catch (IOException e) {
             e.printStackTrace();
         }

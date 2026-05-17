@@ -1,5 +1,6 @@
 package com.example;
 
+import java.io.IOException;
 import java.nio.file.*;
 import java.util.Set;
 import java.util.concurrent.*;
@@ -18,6 +19,7 @@ public class ParquetWatcherService {
     private final Set<Path> inFlightFiles =
             ConcurrentHashMap.newKeySet();
 
+    private boolean isRunning = true;
     public ParquetWatcherService(
             Path baseDir,
             WeatherIndexer weatherIndexer
@@ -44,7 +46,6 @@ public class ParquetWatcherService {
                                 watchService,
                                 StandardWatchEventKinds.ENTRY_CREATE
                         );
-                        System.out.println("Watching: " + dir);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -62,39 +63,44 @@ public class ParquetWatcherService {
         }
     }
 
-    public void start() throws Exception {
+    public void start() {
+        System.out.println("Watcher Started Successfully");
 
-        while (true) {
+        try {
+            while (isRunning) {
 
-            WatchKey key = watchService.take();
+                WatchKey key = watchService.take();
 
-            Path dir = (Path) key.watchable();
+                Path dir = (Path) key.watchable();
 
-            for (WatchEvent<?> event : key.pollEvents()) {
+                for (WatchEvent<?> event : key.pollEvents()) {
 
-                WatchEvent.Kind<?> kind = event.kind();
+                    WatchEvent.Kind<?> kind = event.kind();
 
-                Path relativePath = (Path) event.context();
+                    Path relativePath = (Path) event.context();
 
-                Path fullPath = dir.resolve(relativePath);
+                    Path fullPath = dir.resolve(relativePath);
 
-                System.out.println(kind + ": " + fullPath);
+                    if (kind == StandardWatchEventKinds.ENTRY_CREATE
+                            && Files.isDirectory(fullPath)) {
 
-                if (kind == StandardWatchEventKinds.ENTRY_CREATE
-                        && Files.isDirectory(fullPath)) {
+                        registerAll(fullPath);
+                    }
 
-                    registerAll(fullPath);
+                    if (kind == StandardWatchEventKinds.ENTRY_CREATE
+                            && Files.isRegularFile(fullPath)
+                            && isParquetFile(fullPath)) {
+
+                        submitIndexingTask(fullPath);
+                    }
                 }
 
-                if (kind == StandardWatchEventKinds.ENTRY_CREATE
-                        && Files.isRegularFile(fullPath)
-                        && isParquetFile(fullPath)) {
-
-                    submitIndexingTask(fullPath);
-                }
+                key.reset();
             }
-
-            key.reset();
+        } catch (ClosedWatchServiceException e) {
+            System.out.println("Watch service closed.");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -133,5 +139,26 @@ public class ParquetWatcherService {
                 inFlightFiles.remove(finalPath);
             }
         });
+    }
+    public void stop() throws InterruptedException {
+
+        System.out.println("Stopping watcher...");
+        isRunning = false;
+
+        try {
+            watchService.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("Shutting down indexing pool...");
+        indexingPool.shutdown();
+
+        if (!indexingPool.awaitTermination(60, TimeUnit.SECONDS)) {
+            System.out.println("Forcing Indexing Pool Shutdown...");
+            indexingPool.shutdownNow();
+        }
+
+        System.out.println("Watcher stopped.");
     }
 }
