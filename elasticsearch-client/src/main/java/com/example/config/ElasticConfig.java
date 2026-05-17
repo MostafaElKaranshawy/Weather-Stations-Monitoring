@@ -38,12 +38,4 @@ public class ElasticConfig {
         return elasticsearchClient;
     }
 
-    public static void close() {
-        try {
-            restClient.close();
-            System.out.println("Elasticsearch client closed successfully.");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
 }
