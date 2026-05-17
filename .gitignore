@@ -34,3 +34,5 @@ lib/
 secrets.yml
 .env
 data
+*station
+sequence.txt
