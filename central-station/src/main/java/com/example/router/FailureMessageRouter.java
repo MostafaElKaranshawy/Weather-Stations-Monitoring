@@ -1,5 +1,6 @@
 package com.example.router;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -12,38 +13,54 @@ import java.util.Properties;
 
 public class FailureMessageRouter implements AutoCloseable {
 
-    private static final int MAX_RETRIES = 5; // a parameter to be chosen
-    private static final String INVALID_TOPIC = "weather_invalid_data";
-    private static final String DEAD_LETTER_TOPIC = "weather_dead_letter";
+    static Dotenv dotenv = Dotenv.load();
+    private static final String INVALID_TOPIC = dotenv.get("INVALID_TOPIC");
+    private static final String DEAD_LETTER_TOPIC = dotenv.get("DEAD_LETTER_TOPIC");
 
-    private final Map<String, Integer> failureCount = new HashMap<>();
     private final KafkaProducer<String, String> producer;
 
     public FailureMessageRouter() {
         Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,   StringSerializer.class.getName());
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         this.producer = new KafkaProducer<>(props);
     }
 
-    public void route(String rawJSON) {
-        String messageKey = extractKey(rawJSON);
-        int count = failureCount.merge(messageKey, 1, Integer::sum);
-        String targetTopic = count > MAX_RETRIES ? DEAD_LETTER_TOPIC : INVALID_TOPIC;
+    // this is needed for debugging so we need to send extra info/logs
+    public void sendToInvalidChannel(String rawJSON) { send(INVALID_TOPIC, rawJSON); }
 
-        producer.send(new ProducerRecord<>(targetTopic, messageKey, rawJSON),
-            (metadata, exception) -> {
-                if (exception != null)
-                    System.err.println("Failed to route message to " + targetTopic + " : " + exception.getMessage());
-            });
+    public void sendToDeadLetterChannel(String rawJSON) {
+        send(DEAD_LETTER_TOPIC, rawJSON);
+    }
 
+    private void send(String topic, String rawJSON) {
+        String key = extractKey(rawJSON);
+
+        producer.send(new ProducerRecord<>(topic, key, rawJSON), (metadata, ex) -> {
+            if (ex != null)
+                System.err.printf("[FailureRouter] send failed — topic=%s key=%s error=%s%n",
+                        topic, key, ex.getMessage());
+
+            else
+                System.out.printf("[FailureRouter] routed — topic=%s key=%s partition=%d offset=%d%n",
+                        topic, key, metadata.partition(), metadata.offset());
+
+        });
     }
 
     @Override
     public void close() {
-        producer.flush();
-        producer.close();
+        System.out.println("[FailureMessageRouter] Closing failure router producer connections...");
+        if (producer != null) {
+            try {
+                // Wait up to 5 seconds to flush outstanding error messages
+                producer.close(java.time.Duration.ofSeconds(5));
+                System.out.println("[FailureMessageRouter] Closed successfully.");
+            } catch (Exception e) {
+                System.err.println("[FailureMessageRouter] Error closing producer: " + e.getMessage());
+            }
+        }
     }
 
     private String extractKey(String json) {

@@ -1,6 +1,7 @@
 package com.example.storage.parquet;
 
 import com.example.model.WeatherRecord;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -17,85 +18,114 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public class ParquetArchiver implements AutoCloseable {
 
-    private static final int BATCH_SIZE = 100;
-    private static final String BASE_DIR = "./data/parquet";
+    static Dotenv dotenv = Dotenv.load();
+    private static final int BATCH_SIZE = Integer.parseInt(dotenv.get("BATCH_SIZE"));
+    private static final String BASE_DIR =
+            System.getenv().getOrDefault("PARQUET_BASE_DIR", dotenv.get("PARQUET_BASE_DIR"));
 
     private final Schema schema;
+    private final List<Future<?>> pendingWrites = new ArrayList<>();
 
-    // check if concurrentHashMap is actually needed here or not
-    private final ConcurrentHashMap<Long, List<WeatherRecord>> buffers =
-            new ConcurrentHashMap<>();
+    // thread pool
+    private final ThreadPoolExecutor writersPool = new ThreadPoolExecutor(
+            Math.min(10, Runtime.getRuntime().availableProcessors()*0.9),
+            Runtime.getRuntime().availableProcessors(),
+            60L, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(100),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+    );
+
+    // buffer to keep records before writing to disk, keyed by stationId
+    private List<WeatherRecord> buffer = new ArrayList<>(BATCH_SIZE);
 
     public ParquetArchiver() {
         this.schema = loadSchema();
     }
 
     public void archive(WeatherRecord weatherRecord) throws IOException {
-        List<WeatherRecord> buffer = buffers.computeIfAbsent(
-                weatherRecord.getStationId(), k -> new java.util.ArrayList<>()
-        );
-        buffer.add(weatherRecord);
+        this.buffer.add(weatherRecord);
 
-        if (buffer.size() >= BATCH_SIZE) {
-            persistParquetToDisk(weatherRecord.getStationId());
+        if (this.buffer.size() >= BATCH_SIZE)
+            persistParquetToDisk();
+    }
+
+    private void persistParquetToDisk() {
+        pendingWrites.removeIf(Future::isDone);
+        // local version of the current batch
+        List<WeatherRecord> batch = this.buffer;
+        this.buffer = new ArrayList<>(BATCH_SIZE);
+        Map<Long, List<WeatherRecord>> recordsByStation = batch.stream()
+                .collect(Collectors.groupingBy(WeatherRecord::getStationId));
+
+        // submit write tasks per batch
+        for (var entry : recordsByStation.entrySet()) {
+            long stationId = entry.getKey();
+            List<WeatherRecord> stationRecords = entry.getValue();
+
+            Future<?> future = writersPool.submit(() -> {
+                try {
+                    writeStationBatch(stationId, stationRecords);
+                } catch (IOException e) {
+                    System.err.println("Failed to write Parquet for station " + stationId + ": " + e.getMessage());
+                }
+            });
+
+            pendingWrites.add(future);
         }
     }
 
     // Directory: /archived-data/parquet/date=YYYY-MM-DD/station=N/
     // Filename:  part-{currentTimeMillis}.parquet
-    private void persistParquetToDisk(long stationId) throws IOException{
-        List<WeatherRecord> buffer = buffers.get(stationId);
-        if (buffer == null || buffer.isEmpty())
-            return;
-
-        // returns the old value associated with the specified key
-        // and clears the buffer for the station
-        List<WeatherRecord> toWrite = buffers.put(stationId, new ArrayList<>());
-
-        // Build directory path using Hive partition naming convention
+    private void writeStationBatch(long stationId, List<WeatherRecord> stationRecords) throws IOException{
         String date = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE);
+        String dir = BASE_DIR + "/date=" + date + "/station=" + stationId;
 
-        // CHECK THIS PARTITIONING STRATEGY
-        String dirPath = BASE_DIR + "/date=" + date + "/station=" + stationId;
-        new File(dirPath).mkdirs(); // create if it doesn't exist yet
+        new File(dir).mkdirs();
 
-        String filePath = dirPath + "/part-" + System.currentTimeMillis() + ".parquet";
-
-        Configuration hadoopConf = new Configuration();
+        String file = dir + "/part-" + System.currentTimeMillis() + ".parquet";
 
         try (ParquetWriter<GenericRecord> writer =
-                     AvroParquetWriter.<GenericRecord>builder(new Path(filePath))
+                     AvroParquetWriter.<GenericRecord>builder(new Path(file))
                              .withSchema(schema)
-                             .withConf(hadoopConf)
-                             // SNAPPY compression: good balance of speed and file size.
-                             // Alternative: GZIP for smaller files, UNCOMPRESSED for max speed.
+                             .withConf(new Configuration())
                              .withCompressionCodec(CompressionCodecName.SNAPPY)
                              .build()) {
 
-            for (WeatherRecord weatherRecord : toWrite) {
-                GenericRecord row = createGenericRecord(weatherRecord);
-                writer.write(row);
+            for (WeatherRecord r : stationRecords) {
+                writer.write(createGenericRecord(r));
             }
         }
 
-        System.out.printf("[Parquet] persisted %d records for station %d → %s%n",
-                toWrite.size(), stationId, filePath);
+        System.out.printf("[Parquet] station=%d written=%d file=%s%n",
+                stationId, stationRecords.size(), file);
     }
 
     @Override
     public void close() throws Exception {
         System.out.println("[Parquet] persisting remaining buffers on shutdown...");
 
-        for (var entry : buffers.entrySet()) {
-            long stationId = entry.getKey();
-            persistParquetToDisk(stationId);
-        }
+        if (!buffer.isEmpty())
+            persistParquetToDisk();
 
-        System.out.println("[Parquet] all buffers persisted to disk");
+        for (Future<?> future : pendingWrites)
+            future.get();
+
+        writersPool.shutdown();
+        if (!writersPool.awaitTermination(60, TimeUnit.SECONDS)) {
+            System.err.println("[Parquet] Warning: some write tasks did not finish in time");
+            writersPool.shutdownNow();
+        }
+        else
+            System.out.println("[Parquet] all buffers persisted to disk");
     }
 
     private Schema loadSchema() {
