@@ -43,8 +43,8 @@ public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
     // NEED TO REMOVE ALL THE HARD CODED PARAMETERS, AND PASS THEM FROM OUTSIDE, EITHER VIA CONSTRUCTOR OR CONFIG FILE
     public WeatherKafkaConsumer(WeatherStorageCoordinator storageCoordinator) {
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:9092");
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "central-station-group");
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, dotenv.get("KAFKA_CONSUMER_GROUP_ID"));
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 
