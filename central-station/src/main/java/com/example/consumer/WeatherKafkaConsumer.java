@@ -112,7 +112,7 @@ public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
 
     private boolean processOneRecordWithRetry(ConsumerRecord<String, String> record) {
 
-        for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
             try {
                 processOneRecord(record);
                 return true;
@@ -121,7 +121,8 @@ public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
                 return true;
             } catch (Exception e) {
                 // sleep for a while before retrying
-                sleepBackoff(attempt);
+                if (attempt < MAX_RETRIES)
+                    sleepBackoff(attempt);
             }
         }
 
@@ -157,6 +158,9 @@ public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
         // BitCask  → stores only the LATEST value per station (fast lookups)
         // Parquet  → stores EVERY message (full historical archive)
         storageCoordinator.save(weatherRecord);
+
+        // 5. commit the message as processed in IdempotentReceiver
+        idempotentReceiver.commitMessage(weatherRecord.getStationId(), weatherRecord.getSNo());
     }
 
     private void sleepBackoff(int attempt) {
