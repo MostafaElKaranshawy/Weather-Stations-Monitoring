@@ -39,7 +39,7 @@ public class WeatherParser {
             Instant now = Instant.now();
 
             // Reject future timestamps
-            if (recordTime.isAfter(now)) {
+            if (recordTime.isAfter(now.plus(Duration.ofSeconds(2)))) {
                 return false;
             }
 
