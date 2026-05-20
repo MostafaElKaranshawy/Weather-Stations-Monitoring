@@ -1,0 +1,181 @@
+# ==============================================================================
+# Application: Central Station, Kafka Stream, ES Client, Adapter
+# ==============================================================================
+
+# Central Station
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: central-station
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: central-station
+  template:
+    metadata:
+      labels:
+        app: central-station
+    spec:
+      containers:
+      - name: central-station
+        image: central-station:latest
+        imagePullPolicy: Never
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: KAFKA_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: KAFKA_CONSUMER_GROUP_ID
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_GROUP_ID } }
+        - name: BITCASK_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BITCASK_DIR } }
+        - name: PARQUET_BASE_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: PARQUET_BASE_DIR } }
+        - name: BATCH_SIZE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BATCH_SIZE } }
+        - name: BITCASK_MAX_FILE_SIZE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BITCASK_MAX_FILE_SIZE } }
+        - name: COMPACTION_INTERVAL_MINS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: COMPACTION_INTERVAL_MINS } }
+        - name: MAX_RECORD_AGE_HOURS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: MAX_RECORD_AGE_HOURS } }
+        - name: MAX_RETRIES
+          valueFrom: { configMapKeyRef: { name: weather-config, key: MAX_RETRIES } }
+        - name: INVALID_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_INVALID } }
+        - name: DEAD_LETTER_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_DEAD_LETTER } }
+        - name: HADOOP_CONF_DIR
+          value: "/etc/hadoop"
+        - name: HADOOP_USER_NAME
+          value: "root"
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        - name: hadoop-conf
+          mountPath: /etc/hadoop
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: weather-data-pvc
+      - name: hadoop-conf
+        configMap:
+          name: hadoop-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: central-station
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: central-station
+---
+# Kafka Stream (Rain Detection)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-stream
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-stream
+  template:
+    metadata:
+      labels:
+        app: kafka-stream
+    spec:
+      containers:
+      - name: kafka-stream
+        image: kafka-stream:latest
+        imagePullPolicy: Never
+        env:
+        - name: BOOTSTRAP_SERVERS_CONFIG
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: INPUT_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: OUTPUT_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_ALERTS } }
+        - name: APPLICATION_ID_CONFIG
+          valueFrom: { configMapKeyRef: { name: weather-config, key: APPLICATION_ID_CONFIG } }
+        - name: MAX_RECORD_AGE_HOURS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: MAX_RECORD_AGE_HOURS } }
+---
+# ElasticSearch Client (Indexer)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch-client
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-client
+    spec:
+      containers:
+      - name: elasticsearch-client
+        image: elasticsearch-client:latest
+        imagePullPolicy: Never
+        env:
+        - name: ELASTICSEARCH_HOSTNAME
+          valueFrom: { configMapKeyRef: { name: weather-config, key: ES_HOSTNAME } }
+        - name: ELASTICSEARCH_PORT
+          valueFrom: { configMapKeyRef: { name: weather-config, key: ES_PORT } }
+        - name: PARQUET_ROOT_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: PARQUET_DIR } }
+        - name: INDEXING_BATCH_SIZE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: INDEXING_BATCH_SIZE } }
+        - name: ELASTICSEARCH_INDEX_NAME
+          valueFrom: { configMapKeyRef: { name: weather-config, key: ELASTICSEARCH_INDEX_NAME } }
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: weather-data-pvc
+---
+# Bonus: Open-Meteo Adapter
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-meteo-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-meteo-adapter
+  template:
+    metadata:
+      labels:
+        app: open-meteo-adapter
+    spec:
+      containers:
+      - name: open-meteo-adapter
+        image: open-meteo-adapter:latest
+        imagePullPolicy: Never
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: KAFKA_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: STATION_ID
+          valueFrom: { configMapKeyRef: { name: weather-config, key: OPEN_METEO_STATION_ID } }
+        - name: SEQUENCE_FILE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: SEQUENCE_FILE_NAME } }
+        - name: REQUEST_INTERVAL
+          valueFrom: { configMapKeyRef: { name: weather-config, key: REQUEST_INTERVAL } }
+        - name: BACKUP_INTERVAL_REQUESTS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BACKUP_INTERVAL_REQUESTS } }
+        - name: WEATHER_API_LATITUDE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: WEATHER_API_LATITUDE } }
+        - name: WEATHER_API_LONGITUDE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: WEATHER_API_LONGITUDE } }

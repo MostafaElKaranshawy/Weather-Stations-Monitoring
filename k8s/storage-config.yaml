@@ -1,0 +1,84 @@
+# ==============================================================================
+# 1. Storage Configuration
+# ==============================================================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weather-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+# ==============================================================================
+# 2. Shared Application Configuration
+# ==============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-config
+data:
+  # Kafka Settings
+  KAFKA_SERVERS: "kafka:9092"
+  KAFKA_TOPIC_WEATHER: "weather_data"
+  KAFKA_TOPIC_ALERTS: "rain_alerts"
+  KAFKA_TOPIC_INVALID: "weather_invalid_data"
+  KAFKA_TOPIC_DEAD_LETTER: "weather_dead_letter"
+  KAFKA_GROUP_ID: "weather-monitoring-group"
+  APPLICATION_ID_CONFIG: "rain-detector"
+  
+  # ElasticSearch Settings
+  ES_HOSTNAME: "elasticsearch"
+  ES_PORT: "9200"
+  ES_INDEX: "weather-data"
+  ELASTICSEARCH_INDEX_NAME: "weather-data"
+  
+  # Storage Paths (Shared via PVC)
+  BITCASK_DIR: "/data/bitcask"
+  PARQUET_DIR: "/data/parquet"
+  PARQUET_BASE_DIR: "/data/parquet"
+  
+  # Performance & Logic Settings
+  BATCH_SIZE: "10000"
+  INDEXING_BATCH_SIZE: "100"
+  MAX_RETRIES: "5"
+  MAX_RECORD_AGE_HOURS: "6"
+  BITCASK_MAX_FILE_SIZE: "1048576"
+  REQUEST_INTERVAL: "1000"
+  BACKUP_INTERVAL_REQUESTS: "60"
+  SEQUENCE_FILE_NAME: "sequence.txt"
+  COMPACTION_INTERVAL_MINS: "10"
+  
+  # Open-Meteo Settings
+  OPEN_METEO_STATION_ID: "-1"
+  WEATHER_API_LATITUDE: "31.2000"
+  WEATHER_API_LONGITUDE: "29.8999"
+
+---
+# ==============================================================================
+# 3. Hadoop Configuration (For Parquet Local Writes)
+# ==============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-config
+data:
+  core-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>fs.file.impl</name>
+        <value>org.apache.hadoop.fs.LocalFileSystem</value>
+      </property>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>file:///</value>
+      </property>
+      <property>
+        <name>fs.hdfs.impl</name>
+        <value>org.apache.hadoop.fs.LocalFileSystem</value>
+      </property>
+    </configuration>
+
