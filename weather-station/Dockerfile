@@ -1,0 +1,28 @@
+# Stage 1: Build
+FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
+WORKDIR /app
+
+# Copy root pom and module poms for dependency resolution
+COPY pom.xml .
+COPY weather-station/pom.xml weather-station/
+COPY kafka-stream/pom.xml kafka-stream/
+COPY central-station/pom.xml central-station/
+COPY elasticsearch-client/pom.xml elasticsearch-client/
+COPY open-meteo-adapter/pom.xml open-meteo-adapter/
+
+# Pre-download dependencies
+RUN mvn -pl weather-station -am dependency:go-offline
+
+# Copy source code and build
+COPY weather-station/src ./weather-station/src
+RUN mvn -pl weather-station -am clean package -DskipTests
+
+# Stage 2: Runtime
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+COPY --from=build /app/weather-station/target/weather-station-1.0-SNAPSHOT.jar app.jar
+COPY weather-station/entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+ENTRYPOINT ["./entrypoint.sh"]
