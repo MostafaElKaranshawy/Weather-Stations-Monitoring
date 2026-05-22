@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch-client
+  template:
+    metadata:
+      labels:
+        app: elasticsearch-client
+    spec:
+      containers:
+      - name: elasticsearch-client
+        image: elasticsearch-client:latest
+        imagePullPolicy: Never
+        env:
+        - name: ELASTICSEARCH_HOSTNAME
+          valueFrom: { configMapKeyRef: { name: weather-config, key: ES_HOSTNAME } }
+        - name: ELASTICSEARCH_PORT
+          valueFrom: { configMapKeyRef: { name: weather-config, key: ES_PORT } }
+        - name: PARQUET_ROOT_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: PARQUET_DIR } }
+        - name: INDEXING_BATCH_SIZE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: INDEXING_BATCH_SIZE } }
+        - name: ELASTICSEARCH_INDEX_NAME
+          valueFrom: { configMapKeyRef: { name: weather-config, key: ELASTICSEARCH_INDEX_NAME } }
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: weather-data-pvc

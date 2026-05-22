@@ -1,15 +1,4 @@
 apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: weather-data-pvc
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 1Gi
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: weather-config
@@ -44,26 +33,3 @@ data:
   OPEN_METEO_STATION_ID: "-1"
   WEATHER_API_LATITUDE: "31.2000"
   WEATHER_API_LONGITUDE: "29.8999"
-
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hadoop-config
-data:
-  core-site.xml: |
-    <?xml version="1.0"?>
-    <configuration>
-      <property>
-        <name>fs.file.impl</name>
-        <value>org.apache.hadoop.fs.LocalFileSystem</value>
-      </property>
-      <property>
-        <name>fs.defaultFS</name>
-        <value>file:///</value>
-      </property>
-      <property>
-        <name>fs.hdfs.impl</name>
-        <value>org.apache.hadoop.fs.LocalFileSystem</value>
-      </property>
-    </configuration>

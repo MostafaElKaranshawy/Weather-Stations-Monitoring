@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: open-meteo-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: open-meteo-adapter
+  template:
+    metadata:
+      labels:
+        app: open-meteo-adapter
+    spec:
+      containers:
+      - name: open-meteo-adapter
+        image: open-meteo-adapter:latest
+        imagePullPolicy: Never
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: KAFKA_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: STATION_ID
+          valueFrom: { configMapKeyRef: { name: weather-config, key: OPEN_METEO_STATION_ID } }
+        - name: SEQUENCE_FILE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: SEQUENCE_FILE_NAME } }
+        - name: REQUEST_INTERVAL
+          valueFrom: { configMapKeyRef: { name: weather-config, key: REQUEST_INTERVAL } }
+        - name: BACKUP_INTERVAL_REQUESTS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BACKUP_INTERVAL_REQUESTS } }
+        - name: WEATHER_API_LATITUDE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: WEATHER_API_LATITUDE } }
+        - name: WEATHER_API_LONGITUDE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: WEATHER_API_LONGITUDE } }

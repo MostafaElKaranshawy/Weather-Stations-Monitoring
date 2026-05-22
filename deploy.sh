@@ -35,7 +35,9 @@ kind load docker-image docker.elastic.co/elasticsearch/elasticsearch:8.13.4 --na
 kind load docker-image docker.elastic.co/kibana/kibana:8.13.4 --name "${CLUSTER_NAME}"
 
 
-kubectl apply -f k8s/
+kubectl apply -f k8s/configs/
+kubectl apply -f k8s/infrastructure/
+kubectl apply -f k8s/apps/
 
 kubectl rollout restart deployment
 kubectl rollout restart statefulset 2>/dev/null || true
