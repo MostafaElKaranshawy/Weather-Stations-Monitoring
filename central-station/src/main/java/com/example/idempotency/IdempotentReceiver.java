@@ -12,12 +12,11 @@ public class IdempotentReceiver {
 
     public boolean shouldProcess(long stationId, long sNo) {
         Long lastSNo = lastReceivedMessages.get(stationId);
-        if (lastSNo == null || sNo > lastSNo) {
-            lastReceivedMessages.put(stationId, sNo);
-            return true;
-        }
+        return lastSNo == null || sNo > lastSNo;
+    }
 
-        return false;
+    public void commitMessage(long stationId, long sNo) {
+        lastReceivedMessages.put(stationId, sNo);
     }
 
 }

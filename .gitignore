@@ -34,4 +34,4 @@ lib/
 secrets.yml
 .env
 data
-sequence.txt
+*sequence.txt
