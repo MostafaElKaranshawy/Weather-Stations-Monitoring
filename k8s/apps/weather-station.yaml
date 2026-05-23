@@ -28,6 +28,19 @@ spec:
           valueFrom: { configMapKeyRef: { name: weather-config, key: BACKUP_INTERVAL_REQUESTS } }
         - name: SEQUENCE_FILE
           valueFrom: { configMapKeyRef: { name: weather-config, key: SEQUENCE_FILE_NAME } }
+        - name: DATA_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: DATA_DIR } }
+        volumeMounts:
+        - name: weather-data
+          mountPath: /app/data
+  volumeClaimTemplates:
+  - metadata:
+      name: weather-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Mi
 ---
 apiVersion: v1
 kind: Service

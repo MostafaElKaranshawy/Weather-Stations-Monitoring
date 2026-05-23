@@ -19,6 +19,7 @@ data:
   BITCASK_DIR: "/data/bitcask"
   PARQUET_DIR: "/data/parquet"
   PARQUET_BASE_DIR: "/data/parquet"
+  DATA_DIR: "/app/data"
   
   BATCH_SIZE: "10000"
   INDEXING_BATCH_SIZE: "100"

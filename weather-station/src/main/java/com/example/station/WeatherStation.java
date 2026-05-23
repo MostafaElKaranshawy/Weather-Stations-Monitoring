@@ -23,7 +23,13 @@ public class WeatherStation implements Runnable {
 
     public WeatherStation(long stationId) {
         this.stationId = stationId;
-        this.sequenceFile = "station_" + stationId + "_"+ dotenv.get("SEQUENCE_FILE") != null ? dotenv.get("SEQUENCE_FILE") : System.getenv().getOrDefault("SEQUENCE_FILE", "");
+        String dataDir = dotenv.get("DATA_DIR") != null 
+            ? dotenv.get("DATA_DIR") 
+            : System.getenv().getOrDefault("DATA_DIR", ".");
+        String sequenceFileName = dotenv.get("SEQUENCE_FILE") != null 
+            ? dotenv.get("SEQUENCE_FILE") 
+            : System.getenv().getOrDefault("SEQUENCE_FILE", "sequence.txt");
+        this.sequenceFile = dataDir + "/station_" + stationId + "_" + sequenceFileName;
         this.sequence = loadSequence();
     }
 

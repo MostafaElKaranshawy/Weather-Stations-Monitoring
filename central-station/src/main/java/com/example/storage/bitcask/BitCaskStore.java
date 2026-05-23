@@ -26,7 +26,7 @@ public class BitCaskStore implements AutoCloseable {
         }
         
         if (envVal == null || envVal.isEmpty()) {
-            MAX_FILE_SIZE = 10 * 1024 * 1024; // Default 10MB
+            MAX_FILE_SIZE = 1 * 1024 * 1024; // Default 1MB
         } else {
             MAX_FILE_SIZE = Long.parseLong(envVal);
         }

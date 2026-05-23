@@ -33,3 +33,23 @@ spec:
           valueFrom: { configMapKeyRef: { name: weather-config, key: WEATHER_API_LATITUDE } }
         - name: WEATHER_API_LONGITUDE
           valueFrom: { configMapKeyRef: { name: weather-config, key: WEATHER_API_LONGITUDE } }
+        - name: DATA_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: DATA_DIR } }
+        volumeMounts:
+        - name: adapter-data
+          mountPath: /app/data
+      volumes:
+      - name: adapter-data
+        persistentVolumeClaim:
+          claimName: adapter-data-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adapter-data-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
