@@ -18,9 +18,9 @@ import java.util.Properties;
 
 public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
 
-    static Dotenv dotenv = Dotenv.load();
-    private static final String TOPIC = dotenv.get("KAFKA_TOPIC");
-    private static final int MAX_RETRIES = Integer.parseInt(dotenv.get("MAX_RETRIES"));
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    private static final String TOPIC = dotenv.get("KAFKA_TOPIC") != null ? dotenv.get("KAFKA_TOPIC") : System.getenv().getOrDefault("KAFKA_TOPIC", "");
+    private static final int MAX_RETRIES = Integer.parseInt(dotenv.get("MAX_RETRIES") != null ? dotenv.get("MAX_RETRIES") : System.getenv().getOrDefault("MAX_RETRIES", ""));
 
     private final KafkaConsumer<String, String> consumer;
 
@@ -43,8 +43,8 @@ public class WeatherKafkaConsumer implements Runnable, AutoCloseable {
     // NEED TO REMOVE ALL THE HARD CODED PARAMETERS, AND PASS THEM FROM OUTSIDE, EITHER VIA CONSTRUCTOR OR CONFIG FILE
     public WeatherKafkaConsumer(WeatherStorageCoordinator storageCoordinator) {
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, dotenv.get("KAFKA_CONSUMER_GROUP_ID"));
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"));
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, dotenv.get("KAFKA_CONSUMER_GROUP_ID") != null ? dotenv.get("KAFKA_CONSUMER_GROUP_ID") : System.getenv().getOrDefault("KAFKA_CONSUMER_GROUP_ID", ""));
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
 

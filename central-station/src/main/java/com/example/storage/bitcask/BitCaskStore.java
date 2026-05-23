@@ -16,8 +16,21 @@ public class BitCaskStore implements AutoCloseable {
     private FileChannel activeFileChannel;
     private String activeFileId;
     private long currentOffset = 0;
-    static Dotenv dotenv = Dotenv.load();
-    private static final long MAX_FILE_SIZE = Long.parseLong(dotenv.get("BITCASK_MAX_FILE_SIZE"));
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    private static final long MAX_FILE_SIZE;
+
+    static {
+        String envVal = System.getenv("BITCASK_MAX_FILE_SIZE");
+        if (envVal == null || envVal.isEmpty()) {
+            envVal = dotenv.get("BITCASK_MAX_FILE_SIZE");
+        }
+        
+        if (envVal == null || envVal.isEmpty()) {
+            MAX_FILE_SIZE = 1 * 1024 * 1024; // Default 1MB
+        } else {
+            MAX_FILE_SIZE = Long.parseLong(envVal);
+        }
+    }
 
     public BitCaskStore(String dirPath) throws IOException {
         this.directory = Paths.get(dirPath);

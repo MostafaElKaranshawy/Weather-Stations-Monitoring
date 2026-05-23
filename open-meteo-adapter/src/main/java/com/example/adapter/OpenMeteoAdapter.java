@@ -7,8 +7,8 @@ import org.json.JSONObject;
 
 public class OpenMeteoAdapter {
 
-    private static final Dotenv dotenv = Dotenv.load();
-    private static final long STATION_ID = Long.parseLong(dotenv.get("STATION_ID"));
+    private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    private static final long STATION_ID = Long.parseLong(dotenv.get("STATION_ID") != null ? dotenv.get("STATION_ID") : System.getenv().getOrDefault("STATION_ID", ""));
 
     public String adapt(long sNo, String apiResponse) {
 

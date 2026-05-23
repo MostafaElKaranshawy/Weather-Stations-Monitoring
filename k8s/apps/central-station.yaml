@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: central-station
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: central-station
+  template:
+    metadata:
+      labels:
+        app: central-station
+    spec:
+      containers:
+      - name: central-station
+        image: central-station:latest
+        imagePullPolicy: Never
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: KAFKA_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: KAFKA_CONSUMER_GROUP_ID
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_GROUP_ID } }
+        - name: BITCASK_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BITCASK_DIR } }
+        - name: PARQUET_BASE_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: PARQUET_BASE_DIR } }
+        - name: BATCH_SIZE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BATCH_SIZE } }
+        - name: BITCASK_MAX_FILE_SIZE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BITCASK_MAX_FILE_SIZE } }
+        - name: COMPACTION_INTERVAL_MINS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: COMPACTION_INTERVAL_MINS } }
+        - name: MAX_RECORD_AGE_HOURS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: MAX_RECORD_AGE_HOURS } }
+        - name: MAX_RETRIES
+          valueFrom: { configMapKeyRef: { name: weather-config, key: MAX_RETRIES } }
+        - name: INVALID_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_INVALID } }
+        - name: DEAD_LETTER_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_DEAD_LETTER } }
+        - name: HADOOP_CONF_DIR
+          value: "/etc/hadoop"
+        - name: HADOOP_USER_NAME
+          value: "root"
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        - name: hadoop-conf
+          mountPath: /etc/hadoop
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: weather-data-pvc
+      - name: hadoop-conf
+        configMap:
+          name: hadoop-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: central-station
+spec:
+  ports:
+  - port: 8080
+    targetPort: 8080
+  selector:
+    app: central-station

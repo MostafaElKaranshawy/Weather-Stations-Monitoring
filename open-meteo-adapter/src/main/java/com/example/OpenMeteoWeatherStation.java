@@ -11,18 +11,25 @@ import java.nio.file.Paths;
 
 public class OpenMeteoWeatherStation {
     
-    static Dotenv dotenv = Dotenv.load();
-    private static final long STATION_ID = Long.parseLong(dotenv.get("STATION_ID"));
-    private static final String SEQUENCE_FILE = dotenv.get("SEQUENCE_FILE");
+    static Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+    private static final long STATION_ID = Long.parseLong(dotenv.get("STATION_ID") != null ? dotenv.get("STATION_ID") : System.getenv().getOrDefault("STATION_ID", ""));
+    private final String sequenceFile;
     private long sequence = 0;
     private int requestCounter = 0;
-    private  static final int REQUEST_INTERVAL = Integer.parseInt(dotenv.get("REQUEST_INTERVAL"));
-    private static final int BACKUP_INTERVAL_REQUESTS = Integer.parseInt(dotenv.get("BACKUP_INTERVAL_REQUESTS")); 
+    private  static final int REQUEST_INTERVAL = Integer.parseInt(dotenv.get("REQUEST_INTERVAL") != null ? dotenv.get("REQUEST_INTERVAL") : System.getenv().getOrDefault("REQUEST_INTERVAL", ""));
+    private static final int BACKUP_INTERVAL_REQUESTS = Integer.parseInt(dotenv.get("BACKUP_INTERVAL_REQUESTS") != null ? dotenv.get("BACKUP_INTERVAL_REQUESTS") : System.getenv().getOrDefault("BACKUP_INTERVAL_REQUESTS", "")); 
     private final OpenMeteoClient client = new OpenMeteoClient();
     private final OpenMeteoAdapter adapter = new OpenMeteoAdapter();
     private final KafkaProducerService producer = new KafkaProducerService();
 
     public OpenMeteoWeatherStation() {
+        String dataDir = dotenv.get("DATA_DIR") != null 
+            ? dotenv.get("DATA_DIR") 
+            : System.getenv().getOrDefault("DATA_DIR", ".");
+        String sequenceFileName = dotenv.get("SEQUENCE_FILE") != null 
+            ? dotenv.get("SEQUENCE_FILE") 
+            : System.getenv().getOrDefault("SEQUENCE_FILE", "sequence.txt");
+        this.sequenceFile = dataDir + "/station_" + STATION_ID + "_" + sequenceFileName;
         this.sequence = loadSequence();
     }
 
@@ -41,8 +48,8 @@ public class OpenMeteoWeatherStation {
 
     public synchronized void saveSequence() {
         try {
-            Files.writeString(Paths.get(SEQUENCE_FILE), String.valueOf(this.sequence));
-            System.out.println("Sequence " + this.sequence + " backed up to " + SEQUENCE_FILE);
+            Files.writeString(Paths.get(this.sequenceFile), String.valueOf(this.sequence));
+            System.out.println("Sequence " + this.sequence + " backed up to " + this.sequenceFile);
         } catch (IOException e) {
             System.err.println("Failed to save sequence number: " + e.getMessage());
         }
@@ -50,8 +57,8 @@ public class OpenMeteoWeatherStation {
 
     private long loadSequence() {
         try {
-            if (Files.exists(Paths.get(SEQUENCE_FILE))) {
-                String content = Files.readString(Paths.get(SEQUENCE_FILE)).trim();
+            if (Files.exists(Paths.get(this.sequenceFile))) {
+                String content = Files.readString(Paths.get(this.sequenceFile)).trim();
                 return Long.parseLong(content);
             }
         } catch (Exception e) {

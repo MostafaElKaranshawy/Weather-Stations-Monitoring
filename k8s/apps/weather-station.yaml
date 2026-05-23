@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: weather-station
+spec:
+  serviceName: "weather-station"
+  replicas: 10
+  selector:
+    matchLabels:
+      app: weather-station
+  template:
+    metadata:
+      labels:
+        app: weather-station
+    spec:
+      containers:
+      - name: weather-station
+        image: weather-station:latest
+        imagePullPolicy: Never
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: KAFKA_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: REQUEST_INTERVAL
+          valueFrom: { configMapKeyRef: { name: weather-config, key: REQUEST_INTERVAL } }
+        - name: BACKUP_INTERVAL_REQUESTS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: BACKUP_INTERVAL_REQUESTS } }
+        - name: SEQUENCE_FILE
+          valueFrom: { configMapKeyRef: { name: weather-config, key: SEQUENCE_FILE_NAME } }
+        - name: DATA_DIR
+          valueFrom: { configMapKeyRef: { name: weather-config, key: DATA_DIR } }
+        volumeMounts:
+        - name: weather-data
+          mountPath: /app/data
+  volumeClaimTemplates:
+  - metadata:
+      name: weather-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: weather-station
+spec:
+  clusterIP: None
+  ports:
+  - port: 8080
+  selector:
+    app: weather-station

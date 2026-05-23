@@ -12,13 +12,13 @@ public class RainDetectionApp {
 
     public static void main(String[] args) {
         // Configure dotenv to safely handle environments without a physical .env file
-        Dotenv dotenv = Dotenv.load();
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
         // Read configuration from environment variables
-        String applicationId = dotenv.get("APPLICATION_ID_CONFIG");
-        String bootstrapServers = dotenv.get("BOOTSTRAP_SERVERS_CONFIG");
-        String inputTopic = dotenv.get("INPUT_TOPIC");
-        String outputTopic = dotenv.get("OUTPUT_TOPIC");
+        String applicationId = dotenv.get("APPLICATION_ID_CONFIG") != null ? dotenv.get("APPLICATION_ID_CONFIG") : System.getenv().getOrDefault("APPLICATION_ID_CONFIG", "");
+        String bootstrapServers = dotenv.get("BOOTSTRAP_SERVERS_CONFIG") != null ? dotenv.get("BOOTSTRAP_SERVERS_CONFIG") : System.getenv().getOrDefault("BOOTSTRAP_SERVERS_CONFIG", "");
+        String inputTopic = dotenv.get("INPUT_TOPIC") != null ? dotenv.get("INPUT_TOPIC") : System.getenv().getOrDefault("INPUT_TOPIC", "");
+        String outputTopic = dotenv.get("OUTPUT_TOPIC") != null ? dotenv.get("OUTPUT_TOPIC") : System.getenv().getOrDefault("OUTPUT_TOPIC", "");
 
         Properties props = new Properties();
         props.put(StreamsConfig.APPLICATION_ID_CONFIG, applicationId);

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hadoop-config
+data:
+  core-site.xml: |
+    <?xml version="1.0"?>
+    <configuration>
+      <property>
+        <name>fs.file.impl</name>
+        <value>org.apache.hadoop.fs.LocalFileSystem</value>
+      </property>
+      <property>
+        <name>fs.defaultFS</name>
+        <value>file:///</value>
+      </property>
+      <property>
+        <name>fs.hdfs.impl</name>
+        <value>org.apache.hadoop.fs.LocalFileSystem</value>
+      </property>
+    </configuration>

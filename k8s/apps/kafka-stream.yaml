@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-stream
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kafka-stream
+  template:
+    metadata:
+      labels:
+        app: kafka-stream
+    spec:
+      containers:
+      - name: kafka-stream
+        image: kafka-stream:latest
+        imagePullPolicy: Never
+        env:
+        - name: BOOTSTRAP_SERVERS_CONFIG
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
+        - name: INPUT_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_WEATHER } }
+        - name: OUTPUT_TOPIC
+          valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_TOPIC_ALERTS } }
+        - name: APPLICATION_ID_CONFIG
+          valueFrom: { configMapKeyRef: { name: weather-config, key: APPLICATION_ID_CONFIG } }
+        - name: MAX_RECORD_AGE_HOURS
+          valueFrom: { configMapKeyRef: { name: weather-config, key: MAX_RECORD_AGE_HOURS } }

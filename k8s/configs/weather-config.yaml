@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-config
+data:
+  KAFKA_SERVERS: "kafka:9092"
+  KAFKA_TOPIC_WEATHER: "weather_data"
+  KAFKA_TOPIC_ALERTS: "rain_alerts"
+  KAFKA_TOPIC_INVALID: "weather_invalid_data"
+  KAFKA_TOPIC_DEAD_LETTER: "weather_dead_letter"
+  KAFKA_GROUP_ID: "weather-monitoring-group"
+  APPLICATION_ID_CONFIG: "rain-detector"
+  
+  ES_HOSTNAME: "elasticsearch"
+  ES_PORT: "9200"
+  ES_INDEX: "weather-data"
+  ELASTICSEARCH_INDEX_NAME: "weather-data"
+  
+  BITCASK_DIR: "/data/bitcask"
+  PARQUET_DIR: "/data/parquet"
+  PARQUET_BASE_DIR: "/data/parquet"
+  DATA_DIR: "/app/data"
+  
+  BATCH_SIZE: "10000"
+  INDEXING_BATCH_SIZE: "100"
+  MAX_RETRIES: "5"
+  MAX_RECORD_AGE_HOURS: "6"
+  BITCASK_MAX_FILE_SIZE: "256000"
+  REQUEST_INTERVAL: "1000"
+  BACKUP_INTERVAL_REQUESTS: "60"
+  SEQUENCE_FILE_NAME: "sequence.txt"
+  COMPACTION_INTERVAL_MINS: "10"
+  
+  OPEN_METEO_STATION_ID: "-1"
+  WEATHER_API_LATITUDE: "31.2000"
+  WEATHER_API_LONGITUDE: "29.8999"

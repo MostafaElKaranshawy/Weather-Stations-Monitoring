@@ -8,14 +8,14 @@ import java.util.Properties;
 
 public class KafkaProducerService {
 
-    private static final Dotenv dotenv = Dotenv.load();
+    private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private final KafkaProducer<String, String> producer;
-    private final String topic = dotenv.get("KAFKA_TOPIC");
+    private final String topic = dotenv.get("KAFKA_TOPIC") != null ? dotenv.get("KAFKA_TOPIC") : System.getenv().getOrDefault("KAFKA_TOPIC", "");
 
     public KafkaProducerService() {
         Properties props = new Properties();
 
-        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS"));
+        props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, dotenv.get("KAFKA_BOOTSTRAP_SERVERS") != null ? dotenv.get("KAFKA_BOOTSTRAP_SERVERS") : System.getenv().getOrDefault("KAFKA_BOOTSTRAP_SERVERS", ""));
         props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
 
