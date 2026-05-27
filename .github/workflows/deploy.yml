@@ -20,50 +20,57 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
       - name: Set up kubectl
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
 
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
+      # Create a kind cluster on the runner itself
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: weather-monitoring
 
-      # Configs first — everything depends on these
+      # No need to configure kubeconfig — kind-action does it automatically
+      - name: Verify cluster
+        run: kubectl cluster-info
+
       - name: Apply configs
         run: |
           kubectl apply -f k8s/configs/hadoop-config.yaml
           kubectl apply -f k8s/configs/weather-config.yaml
           kubectl apply -f k8s/configs/pvc.yaml
 
-      # Zookeeper must come before Kafka
       - name: Deploy Zookeeper
         run: kubectl apply -f k8s/infrastructure/zookeeper.yaml
 
       - name: Wait for Zookeeper
         run: kubectl rollout status deployment/zookeeper -n ${{ env.NAMESPACE }} --timeout=120s
 
-      # Kafka depends on Zookeeper
       - name: Deploy Kafka
         run: kubectl apply -f k8s/infrastructure/kafka.yaml
 
       - name: Wait for Kafka
         run: kubectl rollout status deployment/kafka -n ${{ env.NAMESPACE }} --timeout=120s
 
-      # Elasticsearch is independent of Kafka, deploy in parallel window
       - name: Deploy Elasticsearch
         run: kubectl apply -f k8s/infrastructure/elasticsearch.yaml
 
       - name: Wait for Elasticsearch
         run: kubectl rollout status deployment/elasticsearch -n ${{ env.NAMESPACE }} --timeout=180s
 
-      # Kibana depends on Elasticsearch
       - name: Deploy Kibana
         run: kubectl apply -f k8s/infrastructure/kibana.yaml
 
-      # Deploy all app servers — infra is ready at this point
       - name: Deploy apps
         run: |
           kubectl apply -f k8s/apps/central-station.yaml
@@ -72,7 +79,6 @@ jobs:
           kubectl apply -f k8s/apps/kafka-stream.yaml
           kubectl apply -f k8s/apps/elasticsearch-client.yaml
 
-      # Update your GHCR images to the current commit SHA
       - name: Update image tags
         run: |
           kubectl set image deployment/central-station \
@@ -108,13 +114,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     if: failure()
+    env:
+      NAMESPACE: weather-app
     steps:
-      - name: Configure kubeconfig
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
-          chmod 600 $HOME/.kube/config
-
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: weather-monitoring
       - name: Rollback apps
         run: |
           kubectl rollout undo deployment/central-station -n ${{ env.NAMESPACE }}
