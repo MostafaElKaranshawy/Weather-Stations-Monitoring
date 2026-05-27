@@ -15,7 +15,7 @@ spec:
       containers:
       - name: zookeeper
         image: zookeeper:3.9.2
-        imagePullPolicy: Never
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 2181
 ---

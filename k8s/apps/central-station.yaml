@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: central-station
-        image: central-station:latest
-        imagePullPolicy: Never
+        image: ghcr.io/mostafaelkaranshawy/central-station:latest
+        imagePullPolicy: Always
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }

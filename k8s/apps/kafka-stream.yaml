@@ -14,8 +14,8 @@ spec:
     spec:
       containers:
       - name: kafka-stream
-        image: kafka-stream:latest
-        imagePullPolicy: Never
+        image: ghcr.io/mostafaelkaranshawy/kafka-stream:latest
+        imagePullPolicy: Always
         env:
         - name: BOOTSTRAP_SERVERS_CONFIG
           valueFrom: { configMapKeyRef: { name: weather-config, key: KAFKA_SERVERS } }
