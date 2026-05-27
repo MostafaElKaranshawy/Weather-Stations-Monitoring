@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: weather-config
+  namespace: weather-app
 data:
   KAFKA_SERVERS: "kafka:9092"
   KAFKA_TOPIC_WEATHER: "weather_data"

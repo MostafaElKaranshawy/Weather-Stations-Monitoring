@@ -1,0 +1,124 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NAMESPACE: weather-app
+  OWNER: mostafaelkaranshawy
+
+jobs:
+  deploy:
+    name: Deploy to K8s
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      # Configs first — everything depends on these
+      - name: Apply configs
+        run: |
+          kubectl apply -f k8s/configs/hadoop-config.yaml
+          kubectl apply -f k8s/configs/weather-config.yaml
+          kubectl apply -f k8s/configs/pvc.yaml
+
+      # Zookeeper must come before Kafka
+      - name: Deploy Zookeeper
+        run: kubectl apply -f k8s/infrastructure/zookeeper.yaml
+
+      - name: Wait for Zookeeper
+        run: kubectl rollout status deployment/zookeeper -n ${{ env.NAMESPACE }} --timeout=120s
+
+      # Kafka depends on Zookeeper
+      - name: Deploy Kafka
+        run: kubectl apply -f k8s/infrastructure/kafka.yaml
+
+      - name: Wait for Kafka
+        run: kubectl rollout status deployment/kafka -n ${{ env.NAMESPACE }} --timeout=120s
+
+      # Elasticsearch is independent of Kafka, deploy in parallel window
+      - name: Deploy Elasticsearch
+        run: kubectl apply -f k8s/infrastructure/elasticsearch.yaml
+
+      - name: Wait for Elasticsearch
+        run: kubectl rollout status deployment/elasticsearch -n ${{ env.NAMESPACE }} --timeout=180s
+
+      # Kibana depends on Elasticsearch
+      - name: Deploy Kibana
+        run: kubectl apply -f k8s/infrastructure/kibana.yaml
+
+      # Deploy all app servers — infra is ready at this point
+      - name: Deploy apps
+        run: |
+          kubectl apply -f k8s/apps/central-station.yaml
+          kubectl apply -f k8s/apps/weather-station.yaml
+          kubectl apply -f k8s/apps/open-meteo-adapter.yaml
+          kubectl apply -f k8s/apps/kafka-stream.yaml
+          kubectl apply -f k8s/apps/elasticsearch-client.yaml
+
+      # Update your GHCR images to the current commit SHA
+      - name: Update image tags
+        run: |
+          kubectl set image deployment/central-station \
+            central-station=ghcr.io/${{ env.OWNER }}/central-station:latest \
+            -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/weather-station \
+            weather-station=ghcr.io/${{ env.OWNER }}/weather-station:latest \
+            -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/open-meteo-adapter \
+            open-meteo-adapter=ghcr.io/${{ env.OWNER }}/open-meteo-adapter:latest \
+            -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/kafka-stream \
+            kafka-stream=ghcr.io/${{ env.OWNER }}/kafka-stream:latest \
+            -n ${{ env.NAMESPACE }}
+          kubectl set image deployment/elasticsearch-client \
+            elasticsearch-client=ghcr.io/${{ env.OWNER }}/elasticsearch-client:latest \
+            -n ${{ env.NAMESPACE }}
+
+      - name: Verify app rollouts
+        run: |
+          kubectl rollout status deployment/central-station -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/weather-station -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/open-meteo-adapter -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/kafka-stream -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout status deployment/elasticsearch-client -n ${{ env.NAMESPACE }} --timeout=120s
+
+      - name: Pod status
+        if: always()
+        run: kubectl get pods -n ${{ env.NAMESPACE }}
+
+  rollback:
+    name: Rollback on failure
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+    steps:
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Rollback apps
+        run: |
+          kubectl rollout undo deployment/central-station -n ${{ env.NAMESPACE }}
+          kubectl rollout undo deployment/weather-station -n ${{ env.NAMESPACE }}
+          kubectl rollout undo deployment/open-meteo-adapter -n ${{ env.NAMESPACE }}
+          kubectl rollout undo deployment/kafka-stream -n ${{ env.NAMESPACE }}
+          kubectl rollout undo deployment/elasticsearch-client -n ${{ env.NAMESPACE }}
