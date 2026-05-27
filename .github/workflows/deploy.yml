@@ -87,7 +87,7 @@ jobs:
           kubectl set image deployment/central-station \
             central-station=ghcr.io/${{ env.OWNER }}/central-station:latest \
             -n ${{ env.NAMESPACE }}
-          kubectl set image deployment/weather-station \
+          kubectl set image statefulset/weather-station \
             weather-station=ghcr.io/${{ env.OWNER }}/weather-station:latest \
             -n ${{ env.NAMESPACE }}
           kubectl set image deployment/open-meteo-adapter \
@@ -103,7 +103,7 @@ jobs:
       - name: Verify app rollouts
         run: |
           kubectl rollout status deployment/central-station -n ${{ env.NAMESPACE }} --timeout=120s
-          kubectl rollout status deployment/weather-station -n ${{ env.NAMESPACE }} --timeout=120s
+          kubectl rollout status statefulset/weather-station -n ${{ env.NAMESPACE }} --timeout=120s
           kubectl rollout status deployment/open-meteo-adapter -n ${{ env.NAMESPACE }} --timeout=120s
           kubectl rollout status deployment/kafka-stream -n ${{ env.NAMESPACE }} --timeout=120s
           kubectl rollout status deployment/elasticsearch-client -n ${{ env.NAMESPACE }} --timeout=120s
@@ -127,7 +127,7 @@ jobs:
       - name: Rollback apps
         run: |
           kubectl rollout undo deployment/central-station -n ${{ env.NAMESPACE }}
-          kubectl rollout undo deployment/weather-station -n ${{ env.NAMESPACE }}
+          kubectl rollout undo statefulset/weather-station -n ${{ env.NAMESPACE }}
           kubectl rollout undo deployment/open-meteo-adapter -n ${{ env.NAMESPACE }}
           kubectl rollout undo deployment/kafka-stream -n ${{ env.NAMESPACE }}
           kubectl rollout undo deployment/elasticsearch-client -n ${{ env.NAMESPACE }}
