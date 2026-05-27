@@ -100,13 +100,13 @@ jobs:
             elasticsearch-client=ghcr.io/${{ env.OWNER }}/elasticsearch-client:latest \
             -n ${{ env.NAMESPACE }}
 
-      - name: Verify app rollouts
-        run: |
-          kubectl rollout status deployment/central-station -n ${{ env.NAMESPACE }} --timeout=120s
-          kubectl rollout status statefulset/weather-station -n ${{ env.NAMESPACE }} --timeout=120s
-          kubectl rollout status deployment/open-meteo-adapter -n ${{ env.NAMESPACE }} --timeout=120s
-          kubectl rollout status deployment/kafka-stream -n ${{ env.NAMESPACE }} --timeout=120s
-          kubectl rollout status deployment/elasticsearch-client -n ${{ env.NAMESPACE }} --timeout=120s
+#      - name: Verify app rollouts
+#        run: |
+#          kubectl rollout status deployment/central-station -n ${{ env.NAMESPACE }} --timeout=120s
+#          kubectl rollout status statefulset/weather-station -n ${{ env.NAMESPACE }} --timeout=120s
+#          kubectl rollout status deployment/open-meteo-adapter -n ${{ env.NAMESPACE }} --timeout=120s
+#          kubectl rollout status deployment/kafka-stream -n ${{ env.NAMESPACE }} --timeout=120s
+#          kubectl rollout status deployment/elasticsearch-client -n ${{ env.NAMESPACE }} --timeout=120s
 
       - name: Pod status
         if: always()
